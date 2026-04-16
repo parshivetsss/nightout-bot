@@ -1,4 +1,5 @@
 import os
+import datetime
 import anthropic
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
@@ -66,12 +67,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     text = update.message.text
 
+    moscow_tz = datetime.timezone(datetime.timedelta(hours=3))
+    now = datetime.datetime.now(moscow_tz)
+    days = ["понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"]
+    day_name = days[now.weekday()]
+    time_str = now.strftime("%H:%M")
+    moscow_time = f"Сейчас в Москве: {day_name}, {time_str}"
+
     if user_id not in user_histories:
         user_histories[user_id] = []
 
     user_histories[user_id].append({
         "role": "user",
-        "content": f"Меня зовут {name}. {text}"
+        "content": f"{moscow_time}. Меня зовут {name}. {text}"
     })
 
     if len(user_histories[user_id]) > 10:
