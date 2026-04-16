@@ -10,21 +10,24 @@ CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
 
 claude = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
-# Загружаем базу заведений
 PLACES = []
 try:
     with open("moscow_places_full.json", encoding="utf-8") as f:
         PLACES = json.load(f)
-    print(f"База загружена: {len(PLACES)} заведений")
+    PLACES = [p for p in PLACES if (p.get("rating") or 0) >= 3.8]
+    print(f"База загружена: {len(PLACES)} заведений (рейтинг 3.8+)")
 except Exception as e:
     print(f"База не найдена: {e}")
 
 CATEGORY_KEYWORDS = {
-    "Ресторан": ["ресторан", "ужин", "поесть", "кухня", "еда", "обед", "стейк", "суши", "пицца", "грузин", "итальян", "японск"],
+    "Ресторан": ["ресторан", "ужин", "поесть", "кухня", "еда", "обед", "стейк", "суши", "пицца", "грузин", "итальян", "японск", "кафе"],
     "Бар": ["бар", "коктейл", "выпить", "пиво", "вино", "бар-хоппинг", "паб", "напитк"],
     "Кофейня": ["кофе", "кофейня", "капучино", "десерт", "торт", "кондитер", "чай"],
     "Клуб": ["клуб", "танцевать", "вечеринк", "дискотек", "техно", "хаус", "рейв", "ночн"],
 }
+
+REPEAT_KEYWORDS = ["ещё", "еще", "другой", "другое", "другие", "не то", "не понравилось",
+                   "ещё варианты", "другие варианты", "покажи ещё", "что ещё", "альтернатив"]
 
 def get_moscow_time():
     tz = datetime.timezone(datetime.timedelta(hours=3))
@@ -40,13 +43,28 @@ def detect_categories(text):
             cats.append(cat)
     return cats if cats else ["Ресторан", "Бар", "Кофейня"]
 
-def search_places(text, limit=15):
+def is_repeat_request(text):
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in REPEAT_KEYWORDS)
+
+def search_places(text, exclude_names=None, limit=15):
     if not PLACES:
         return []
     cats = detect_categories(text)
     filtered = [p for p in PLACES if p.get("category") in cats]
+    if exclude_names:
+        filtered = [p for p in filtered if p["name"] not in exclude_names]
     filtered.sort(key=lambda x: (-(x.get("rating") or 0), -(x.get("reviews") or 0)))
     return filtered[:limit]
+
+def extract_names_from_history(history):
+    names = set()
+    for msg in history:
+        if msg["role"] == "assistant":
+            for place in PLACES:
+                if place["name"] in msg["content"]:
+                    names.add(place["name"])
+    return names
 
 def format_places_for_prompt(places):
     if not places:
@@ -55,34 +73,37 @@ def format_places_for_prompt(places):
     for p in places:
         line = f"- {p['name']} ({p.get('category','')})"
         if p.get("address"):
-            line += f" | Адрес: {p['address']}"
+            line += f" | {p['address']}"
         if p.get("rating"):
-            line += f" | Рейтинг: {p['rating']}"
+            line += f" | ⭐{p['rating']}"
         if p.get("hours"):
-            line += f" | Часы: {p['hours']}"
+            line += f" | {p['hours']}"
         lines.append(line)
     return "\n".join(lines)
 
 SYSTEM_PROMPT = """Ты — Nightout. Личный консьерж по вечерам в Москве. Говоришь как умный друг — тепло, уверенно, с лёгкой иронией. Никогда не пишешь как справочник или робот.
 
-СТИЛЬ ОТВЕТА:
-- Текст живой и приятный для чтения — как будто друг рассказывает, а не перечисляет
-- Не громоздко — каждое слово на своём месте
-- Немного характера и настроения — но без пафоса
+СТИЛЬ:
+- Живой и приятный текст — как будто друг рассказывает, а не перечисляет
+- Компактно — каждое слово на месте, без воды
+- Немного характера и настроения, без пафоса
 - Никакого markdown, звёздочек, решёток — только чистый текст
 
 ПРАВИЛА:
-- Используй ТОЛЬКО места из предоставленного списка. Никаких других заведений.
-- Всегда указывай рейтинг и часы работы — это обязательно
-- Если рейтинг или часы неизвестны — не упоминай их вовсе
-- Адрес — только если он есть в данных
-- Бары и алкоголь — только если пользователь сам об этом просит
-- Количество мест — по смыслу запроса, не больше и не меньше
+- Используй ТОЛЬКО места из предоставленного списка
+- Рейтинг и часы работы — обязательно для каждого места
+- Если рейтинг или часы неизвестны — не упоминай их
+- Адрес — только если есть в данных
+- Бары и алкоголь — только если пользователь сам просит
+- Если просят "ещё варианты" — давай новые места, не повторяй предыдущие
+- Если указан бюджет — учитывай его при выборе и предупреди если точных данных о чеке нет
 
 ФОРМАТ каждого места:
 Название — одна живая фраза почему стоит идти
-Адрес, рейтинг X.X, работает до XX:XX
-(одна строка о переходе если есть следующая точка)"""
+Адрес | ⭐рейтинг | работает [часы]
+
+Между точками — одна строка как добраться.
+В конце — короткое тёплое напутствие одной фразой."""
 
 WELCOME = """Привет, {name}. Меня зовут Nightout.
 
@@ -91,10 +112,12 @@ WELCOME = """Привет, {name}. Меня зовут Nightout.
 Просто напиши что тебе нужно — остальное за мной."""
 
 user_histories = {}
+user_last_request = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_histories[user_id] = []
+    user_last_request[user_id] = ""
     name = update.effective_user.first_name
     await update.message.reply_text(WELCOME.format(name=name))
 
@@ -105,25 +128,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id not in user_histories:
         user_histories[user_id] = []
+        user_last_request[user_id] = ""
 
     now, day_name, time_str = get_moscow_time()
     moscow_time = f"Сейчас в Москве: {day_name}, {time_str}"
 
-    places = search_places(text)
+    # Если просят другие варианты — исключаем уже показанные места
+    if is_repeat_request(text):
+        exclude = extract_names_from_history(user_histories[user_id])
+        search_query = user_last_request.get(user_id, text)
+        places = search_places(search_query, exclude_names=exclude)
+        note = "Пользователь просит другие варианты — не повторяй места которые уже предлагал."
+    else:
+        places = search_places(text)
+        user_last_request[user_id] = text
+        note = ""
+
     places_text = format_places_for_prompt(places)
 
     user_message = f"""{moscow_time}
 Меня зовут {name}. Мой запрос: {text}
+{note}
 
-Доступные заведения из базы:
+Доступные заведения:
 {places_text}
 
-Составь сценарий используя только эти места. Начни с обращения по имени и одной живой фразы под настроение. Затем — ВЕЧЕР ГОТОВ и сам план. В конце — короткое тёплое напутствие."""
+Составь сценарий используя только эти места. Начни с короткого обращения по имени. Затем ВЕЧЕР ГОТОВ и план."""
 
     user_histories[user_id].append({"role": "user", "content": user_message})
 
-    if len(user_histories[user_id]) > 10:
-        user_histories[user_id] = user_histories[user_id][-10:]
+    if len(user_histories[user_id]) > 12:
+        user_histories[user_id] = user_histories[user_id][-12:]
 
     try:
         response = claude.messages.create(
