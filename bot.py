@@ -1,4 +1,5 @@
 import os
+import json
 import datetime
 import anthropic
 from telegram import Update
@@ -9,42 +10,79 @@ CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
 
 claude = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
-SYSTEM_PROMPT = """Ты — Nightout. Личный консьерж по вечерам в Москве. Говоришь тепло, уверенно, без пафоса. Как умный друг который всегда знает куда пойти. Никакого markdown, звёздочек, решёток — только чистый текст.
+# Загружаем базу заведений
+PLACES = []
+try:
+    with open("moscow_places_full.json", encoding="utf-8") as f:
+        PLACES = json.load(f)
+    print(f"База загружена: {len(PLACES)} заведений")
+except Exception as e:
+    print(f"База не найдена: {e}")
 
-ПРАВИЛА ТОЧНОСТИ:
-- Называй ТОЛЬКО те места в которых абсолютно уверен. Если есть сомнение — не называй.
-- Адрес только если уверен на 100%. Если не уверен — только название и метро.
-- Рейтинг только если знаешь реальную цифру.
-- Средний чек только если знаешь реальную цифру.
-- Популярные блюда — только реальные позиции из меню.
-- Никогда не придумывай детали. Лучше меньше но точно.
-- Бары и алкоголь только если пользователь явно просит.
-- Вечер не обязан заканчиваться баром.
+CATEGORY_KEYWORDS = {
+    "Ресторан": ["ресторан", "ужин", "поесть", "кухня", "еда", "обед", "стейк", "суши", "пицца", "грузин", "итальян", "японск"],
+    "Бар": ["бар", "коктейл", "выпить", "пиво", "вино", "бар-хоппинг", "паб", "напитк"],
+    "Кофейня": ["кофе", "кофейня", "капучино", "десерт", "торт", "кондитер", "чай"],
+    "Клуб": ["клуб", "танцевать", "вечеринк", "дискотек", "техно", "хаус", "рейв", "ночн"],
+}
 
-ПРАВИЛА УТОЧНЕНИЙ:
-- Если в запросе нет района или части города — спроси откуда стартует или в каком районе хочет провести вечер.
-- Если нет дня и времени — спроси когда планирует выйти.
-- Если запрос совсем размытый и непонятно формат — задай один уточняющий вопрос.
-- Задавай максимум 2 уточняющих вопроса за раз, не больше.
-- Если район, время и формат понятны — сразу составляй сценарий без лишних вопросов.
-- Учитывай день недели при выборе мест — клубы работают в основном пт-сб, многие рестораны не принимают без брони в выходные вечером.
+def get_moscow_time():
+    tz = datetime.timezone(datetime.timedelta(hours=3))
+    now = datetime.datetime.now(tz)
+    days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    return now, days[now.weekday()], now.strftime("%H:%M")
 
-ФОРМАТ ОТВЕТА когда все данные есть:
-Обращение по имени и 1-2 живых предложения под настроение.
+def detect_categories(text):
+    text_lower = text.lower()
+    cats = []
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        if any(kw in text_lower for kw in keywords):
+            cats.append(cat)
+    return cats if cats else ["Ресторан", "Бар", "Кофейня"]
 
-ВЕЧЕР ГОТОВ
+def search_places(text, limit=15):
+    if not PLACES:
+        return []
+    cats = detect_categories(text)
+    filtered = [p for p in PLACES if p.get("category") in cats]
+    filtered.sort(key=lambda x: (-(x.get("rating") or 0), -(x.get("reviews") or 0)))
+    return filtered[:limit]
 
-Для каждого места:
-Название
-Адрес и метро (только если уверен)
-Рейтинг: X.X (только если знаешь)
-Средний чек: X рублей на человека (только если знаешь)
-Что попробовать: (только реальные позиции)
-Одна живая фраза почему именно здесь
+def format_places_for_prompt(places):
+    if not places:
+        return "База заведений недоступна."
+    lines = []
+    for p in places:
+        line = f"- {p['name']} ({p.get('category','')})"
+        if p.get("address"):
+            line += f" | Адрес: {p['address']}"
+        if p.get("rating"):
+            line += f" | Рейтинг: {p['rating']}"
+        if p.get("hours"):
+            line += f" | Часы: {p['hours']}"
+        lines.append(line)
+    return "\n".join(lines)
 
-Между точками — переход: как добраться и сколько идти.
+SYSTEM_PROMPT = """Ты — Nightout. Личный консьерж по вечерам в Москве. Говоришь как умный друг — тепло, уверенно, с лёгкой иронией. Никогда не пишешь как справочник или робот.
 
-В конце — итоговый бюджет и одна короткая тёплая фраза напутствие."""
+СТИЛЬ ОТВЕТА:
+- Текст живой и приятный для чтения — как будто друг рассказывает, а не перечисляет
+- Не громоздко — каждое слово на своём месте
+- Немного характера и настроения — но без пафоса
+- Никакого markdown, звёздочек, решёток — только чистый текст
+
+ПРАВИЛА:
+- Используй ТОЛЬКО места из предоставленного списка. Никаких других заведений.
+- Всегда указывай рейтинг и часы работы — это обязательно
+- Если рейтинг или часы неизвестны — не упоминай их вовсе
+- Адрес — только если он есть в данных
+- Бары и алкоголь — только если пользователь сам об этом просит
+- Количество мест — по смыслу запроса, не больше и не меньше
+
+ФОРМАТ каждого места:
+Название — одна живая фраза почему стоит идти
+Адрес, рейтинг X.X, работает до XX:XX
+(одна строка о переходе если есть следующая точка)"""
 
 WELCOME = """Привет, {name}. Меня зовут Nightout.
 
@@ -52,7 +90,6 @@ WELCOME = """Привет, {name}. Меня зовут Nightout.
 
 Просто напиши что тебе нужно — остальное за мной."""
 
-# Хранение истории диалогов
 user_histories = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,51 +98,47 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     await update.message.reply_text(WELCOME.format(name=name))
 
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     name = update.effective_user.first_name
     text = update.message.text
 
-    moscow_tz = datetime.timezone(datetime.timedelta(hours=3))
-    now = datetime.datetime.now(moscow_tz)
-    days = ["понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"]
-    day_name = days[now.weekday()]
-    time_str = now.strftime("%H:%M")
-    moscow_time = f"Сейчас в Москве: {day_name}, {time_str}"
-
     if user_id not in user_histories:
         user_histories[user_id] = []
 
-    user_histories[user_id].append({
-        "role": "user",
-        "content": f"{moscow_time}. Меня зовут {name}. {text}"
-    })
+    now, day_name, time_str = get_moscow_time()
+    moscow_time = f"Сейчас в Москве: {day_name}, {time_str}"
+
+    places = search_places(text)
+    places_text = format_places_for_prompt(places)
+
+    user_message = f"""{moscow_time}
+Меня зовут {name}. Мой запрос: {text}
+
+Доступные заведения из базы:
+{places_text}
+
+Составь сценарий используя только эти места. Начни с обращения по имени и одной живой фразы под настроение. Затем — ВЕЧЕР ГОТОВ и сам план. В конце — короткое тёплое напутствие."""
+
+    user_histories[user_id].append({"role": "user", "content": user_message})
 
     if len(user_histories[user_id]) > 10:
         user_histories[user_id] = user_histories[user_id][-10:]
 
-
     try:
         response = claude.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=2000,
+            max_tokens=1500,
             system=SYSTEM_PROMPT,
             messages=user_histories[user_id]
         )
         answer = response.content[0].text
-
-        user_histories[user_id].append({
-            "role": "assistant",
-            "content": answer
-        })
-
+        user_histories[user_id].append({"role": "assistant", "content": answer})
     except Exception as e:
         answer = "Что-то пошло не так. Попробуй ещё раз через минуту."
         print(f"Ошибка: {e}")
 
     await update.message.reply_text(answer)
-
 
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -113,7 +146,6 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("Nightout бот запущен")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
