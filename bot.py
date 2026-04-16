@@ -77,7 +77,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(user_histories[user_id]) > 10:
         user_histories[user_id] = user_histories[user_id][-10:]
 
-    await update.message.reply_text("Составляю вечер...")
 
     try:
         response = claude.messages.create(
