@@ -226,18 +226,27 @@ REPEAT_KEYWORDS = ["ещё", "еще", "другой", "другое", "друг
 
 FORMAT_BUTTONS = [
     [
-        InlineKeyboardButton("💑 Свидание", callback_data="format_свидание"),
-        InlineKeyboardButton("👥 С друзьями", callback_data="format_друзья"),
+        InlineKeyboardButton("💑 Свидание", callback_data="f_sv"),
+        InlineKeyboardButton("👥 С друзьями", callback_data="f_fr"),
     ],
     [
-        InlineKeyboardButton("🎵 Клубная ночь", callback_data="format_клуб"),
-        InlineKeyboardButton("🎨 Культура", callback_data="format_культура"),
+        InlineKeyboardButton("🎵 Клубная ночь", callback_data="f_cl"),
+        InlineKeyboardButton("🎨 Культура", callback_data="f_ku"),
     ],
     [
-        InlineKeyboardButton("🎂 День рождения", callback_data="format_др"),
-        InlineKeyboardButton("🚶 Прогулка", callback_data="format_прогулка"),
+        InlineKeyboardButton("🎂 День рождения", callback_data="f_dr"),
+        InlineKeyboardButton("🚶 Прогулка", callback_data="f_pr"),
     ],
 ]
+
+FORMAT_MAP = {
+    "f_sv": "свидание",
+    "f_fr": "друзья",
+    "f_cl": "клуб",
+    "f_ku": "культура",
+    "f_dr": "день рождения",
+    "f_pr": "прогулка",
+}
 
 DISTRICT_BUTTONS = [
     [
@@ -446,33 +455,35 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     data = query.data
 
-    if data.startswith("format_"):
-        fmt = data.replace("format_", "")
+    if data in FORMAT_MAP:
+        fmt = FORMAT_MAP[data]
         user_format[user_id] = fmt
-        fmt_names = {
+        fmt_labels = {
             "свидание": "свидание 💑",
             "друзья": "вечер с друзьями 👥",
             "клуб": "клубную ночь 🎵",
             "культура": "культурный вечер 🎨",
-            "др": "день рождения 🎂",
+            "день рождения": "день рождения 🎂",
             "прогулка": "прогулку 🚶",
         }
-        fmt_label = fmt_names.get(fmt, fmt)
+        fmt_label = fmt_labels.get(fmt, fmt)
         await query.edit_message_text(
             f"Отлично, планируем {fmt_label}.\n\nВ каком районе города?\n\n{DISTRICT_LEGEND}",
             reply_markup=InlineKeyboardMarkup(DISTRICT_BUTTONS)
         )
 
-    elif data.startswith("district_"):
-        district = data.replace("district_", "")
+    elif data in DISTRICT_MAP:
+        district = DISTRICT_MAP[data]
         if district == "другой":
             user_district[user_id] = None
-            await query.edit_message_text("Напиши свой район или станцию метро — и я подберу места рядом.")
+            await query.edit_message_text(
+                "Напиши свой район или станцию метро — и я подберу места рядом."
+            )
         else:
             user_district[user_id] = district
             fmt = user_format.get(user_id, "вечер")
             await query.edit_message_text(
-                f"Район — {district}.\n\nЕсть пожелания по кухне, бюджету или количеству человек? Или просто напиши \"вперёд\" — и я сразу составлю план."
+                f"Район — {district}.\n\nЕсть пожелания по кухне, бюджету или компании? Или просто напиши \"вперёд\" — и я сразу составлю план."
             )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
