@@ -4,7 +4,7 @@ import datetime
 import math
 import random
 import anthropic
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -101,6 +101,7 @@ DISTRICT_BUTTONS = [
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
+        [KeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url="https://nightout-bot-production.up.railway.app"))],
         [KeyboardButton("🏙 Новый вечер"),    KeyboardButton("🔄 Другой вариант")],
         [KeyboardButton("💰 Что по деньгам?"), KeyboardButton("ℹ️ Помощь")],
     ],
