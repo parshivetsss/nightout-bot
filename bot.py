@@ -179,7 +179,21 @@ def search_places(text, district=None, exclude_names=None, limit=15):
     if exclude_names:
         filtered = [p for p in filtered if p["name"] not in exclude_names]
 
-    return filtered[:limit]
+    # Берём топ-150 и случайно выбираем — так каждый раз разные места но все качественные
+    import random
+    pool = filtered[:150]
+    if len(pool) > limit:
+        weights = [(p.get("rating") or 3.8) ** 3 for p in pool]
+        selected = random.choices(pool, weights=weights, k=min(limit * 3, len(pool)))
+        seen = set()
+        unique = []
+        for p in selected:
+            if p["name"] not in seen:
+                seen.add(p["name"])
+                unique.append(p)
+        return unique[:limit]
+
+    return pool[:limit]
 
 def extract_shown_names(history):
     names = set()
