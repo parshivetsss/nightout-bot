@@ -99,14 +99,16 @@ DISTRICT_BUTTONS = [
     ],
 ]
 
-MAIN_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        [KeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url="https://nightout-bot-production.up.railway.app"))],
-        [KeyboardButton("🏙 Новый вечер"),    KeyboardButton("🔄 Другой вариант")],
-        [KeyboardButton("💰 Что по деньгам?"), KeyboardButton("ℹ️ Помощь")],
-    ],
-    resize_keyboard=True,
-)
+def get_main_keyboard(name=""):
+    url = f"https://nightout-bot-production.up.railway.app?name={name}" if name else "https://nightout-bot-production.up.railway.app"
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=url))],
+            [KeyboardButton("🏙 Новый вечер"),    KeyboardButton("🔄 Другой вариант")],
+            [KeyboardButton("💰 Что по деньгам?"), KeyboardButton("ℹ️ Помощь")],
+        ],
+        resize_keyboard=True,
+    )
 
 METRO_STATIONS = {
     "сокольники": (55.7892, 37.6796),
@@ -371,7 +373,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     await update.message.reply_text(
         "Эти кнопки всегда доступны 👇",
-        reply_markup=MAIN_KEYBOARD
+        reply_markup=get_main_keyboard(name)
     )
     await update.message.reply_text(
         WELCOME.format(name=name),
@@ -437,6 +439,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_last_request[user_id] = ""
         user_district[user_id] = None
         user_format[user_id] = None
+        await update.message.reply_text(
+            WELCOME.format(name=name),
+            reply_markup=get_main_keyboard(name)
+        )
         await update.message.reply_text(
             WELCOME.format(name=name),
             reply_markup=InlineKeyboardMarkup(FORMAT_BUTTONS)
