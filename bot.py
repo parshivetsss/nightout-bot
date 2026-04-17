@@ -59,15 +59,11 @@ DISTRICT_MAP = {
     "d_xx": "другой",
 }
 
-DISTRICT_LEGEND = (
-    "Ц — Центр  |  А — Арбат  |  П — Патриаршие  |  К — Китай-город\n"
-    "По — Покровка  |  З — Замоскворечье  |  С — Пресня/Сити  |  В — ВДНХ\n"
-    "Се — Север  |  Ю — Юг  |  ЮЗ — Юго-Запад  |  📍 — Другой"
-)
+DISTRICT_LEGEND = ""
 
 FORMAT_BUTTONS = [
     [
-        InlineKeyboardButton("💑 Свидание",      callback_data="f_sv"),
+        InlineKeyboardButton("🌹 Свидание",      callback_data="f_sv"),
         InlineKeyboardButton("👥 С друзьями",    callback_data="f_fr"),
     ],
     [
@@ -82,22 +78,24 @@ FORMAT_BUTTONS = [
 
 DISTRICT_BUTTONS = [
     [
-        InlineKeyboardButton("Ц",  callback_data="d_c"),
-        InlineKeyboardButton("А",  callback_data="d_a"),
-        InlineKeyboardButton("П",  callback_data="d_p"),
-        InlineKeyboardButton("К",  callback_data="d_k"),
+        InlineKeyboardButton("Центр",       callback_data="d_c"),
+        InlineKeyboardButton("Арбат",       callback_data="d_a"),
+        InlineKeyboardButton("Патриаршие",  callback_data="d_p"),
     ],
     [
-        InlineKeyboardButton("По", callback_data="d_po"),
-        InlineKeyboardButton("З",  callback_data="d_z"),
-        InlineKeyboardButton("С",  callback_data="d_s"),
-        InlineKeyboardButton("В",  callback_data="d_v"),
+        InlineKeyboardButton("Китай-город", callback_data="d_k"),
+        InlineKeyboardButton("Покровка",    callback_data="d_po"),
+        InlineKeyboardButton("Пятницкая",   callback_data="d_z"),
     ],
     [
-        InlineKeyboardButton("Се", callback_data="d_se"),
-        InlineKeyboardButton("Ю",  callback_data="d_yu"),
-        InlineKeyboardButton("ЮЗ", callback_data="d_yz"),
-        InlineKeyboardButton("📍", callback_data="d_xx"),
+        InlineKeyboardButton("Пресня",      callback_data="d_s"),
+        InlineKeyboardButton("ВДНХ",        callback_data="d_v"),
+        InlineKeyboardButton("Север",       callback_data="d_se"),
+    ],
+    [
+        InlineKeyboardButton("Юг",          callback_data="d_yu"),
+        InlineKeyboardButton("Юго-Запад",   callback_data="d_yz"),
+        InlineKeyboardButton("📍 Другой",   callback_data="d_xx"),
     ],
 ]
 
