@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nightout</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080810;--bg2:#0D0D1A;--bg3:#11111F;--gold:#C8A96E;--gold2:#A8893E;--gold-dim:#2A220E;--border:#1C1C2E;--border2:#252535;--text:#E8E8F2;--text2:#8888A8;--text3:#3A3A52}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;height:100%;min-height:100vh;overflow:hidden;user-select:none;margin:0;padding:0}
+.app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease;transform:translateX(20px)}
+.screen.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.screen.exit{opacity:0;transform:translateX(-20px)}
+.hdr{padding:16px 24px 12px;flex-shrink:0}
+.logo{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:6px;color:var(--text)}
+.logo-dot{display:inline-block;width:5px;height:5px;background:var(--gold);border-radius:50%;margin-left:3px;margin-bottom:10px;vertical-align:bottom}
+.sub{font-size:10px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:4px}
+
+/* FORMAT */
+.fmt-title{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;line-height:1.25;padding:0 24px;margin-bottom:28px;flex-shrink:0}
+.fmt-title em{font-style:italic;color:var(--gold)}
+.fmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 24px;flex:1;align-content:start}
+.fmt-card{background:var(--bg2);border:.5px solid var(--border);border-radius:16px;padding:20px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.fmt-card:active{transform:scale(.97)}
+.fmt-card.sel{border-color:var(--gold);background:#0F0F1C}
+.fmt-icon{font-size:22px;margin-bottom:10px;display:block}
+.fmt-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px}
+.fmt-desc{font-size:10px;color:var(--text3);line-height:1.4}
+
+/* DISTRICT */
+.dist-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;padding:0 24px;margin-bottom:6px;flex-shrink:0}
+.dist-sub{font-size:11px;color:var(--text3);padding:0 24px;margin-bottom:20px;flex-shrink:0}
+.dist-list{flex:1;overflow-y:auto;padding:0 24px 16px;display:flex;flex-direction:column;gap:8px}
+.dist-list::-webkit-scrollbar{display:none}
+.dist-item{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border:.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s}
+.dist-item:active{transform:scale(.98)}
+.dist-item.sel{border-color:var(--gold);background:#0F0F1C}
+.dist-name{font-size:14px;color:var(--text)}
+.dist-desc{font-size:10px;color:var(--text3);margin-top:2px}
+.dist-check{width:18px;height:18px;border-radius:50%;border:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.dist-item.sel .dist-check{background:var(--gold);border-color:var(--gold)}
+.dist-check::after{content:'';width:6px;height:4px;border-left:1.5px solid var(--bg);border-bottom:1.5px solid var(--bg);transform:rotate(-45deg) translateY(-1px);opacity:0;transition:opacity .2s}
+.dist-item.sel .dist-check::after{opacity:1}
+
+/* EXTRA */
+.extra-wrap{padding:0 24px 12px;flex-shrink:0}
+.extra-inp{width:100%;background:var(--bg2);border:.5px solid var(--border2);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif;outline:none}
+.extra-inp::placeholder{color:var(--text3)}
+.extra-label{font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:block}
+
+/* LOADING */
+.loading{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.spinner{width:40px;height:40px;border:1px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:var(--text2)}
+.load-sub{font-size:11px;color:var(--text3);letter-spacing:1px}
+
+/* RESULT */
+.res-hdr{padding:16px 24px 12px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between}
+.res-logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:4px}
+.res-badge{font-size:9px;letter-spacing:1px;color:var(--gold);text-transform:uppercase;border:.5px solid var(--gold-dim);padding:4px 10px;border-radius:20px;background:var(--gold-dim);max-width:160px;text-align:right;line-height:1.4}
+.res-ctx{padding:0 24px 14px;flex-shrink:0;display:flex;gap:8px}
+.ctx-pill{font-size:10px;padding:4px 12px;border-radius:20px;background:var(--bg3);border:.5px solid var(--border);color:var(--text2)}
+.res-intro{padding:0 24px 14px;flex-shrink:0;font-size:13px;color:var(--text2);line-height:1.6;font-style:italic}
+.res-scroll{flex:1;overflow-y:auto;padding:0 24px}
+.res-scroll::-webkit-scrollbar{display:none}
+.place-card{background:var(--bg2);border:.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:8px;animation:slideUp .4s ease both}
+.place-card:nth-child(1){animation-delay:.05s}
+.place-card:nth-child(3){animation-delay:.12s}
+.place-card:nth-child(5){animation-delay:.2s}
+.place-card:nth-child(7){animation-delay:.28s}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.place-card.featured{border-left:2px solid var(--gold);border-radius:0 16px 16px 0;border-top:.5px solid var(--border);border-right:.5px solid var(--border);border-bottom:.5px solid var(--border)}
+.place-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.place-num{width:28px;height:28px;border-radius:8px;background:var(--bg3);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--gold);flex-shrink:0}
+.place-info{flex:1;min-width:0}
+.place-name{font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px}
+.place-addr{font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.place-row{display:flex;gap:6px;flex-wrap:wrap}
+.ptag{font-size:9px;padding:3px 9px;border-radius:10px}
+.ptag-gold{background:#1A1508;color:var(--gold);border:.5px solid #2A1E08}
+.ptag-gray{background:#111120;color:var(--text3);border:.5px solid var(--border)}
+.place-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-top:8px;padding-top:10px;border-top:.5px solid var(--border)}
+.connector{display:flex;align-items:center;gap:10px;padding:6px 4px;margin-bottom:8px}
+.conn-line{flex:1;height:.5px;background:var(--border)}
+.conn-txt{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.outro{padding:16px 24px;font-size:12px;color:var(--text3);text-align:center;font-style:italic;flex-shrink:0}
+
+/* ERROR */
+.err-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:12px}
+.err-icon{font-size:32px}
+.err-title{font-size:16px;color:var(--text2)}
+.err-sub{font-size:12px;color:var(--text3);line-height:1.5}
+
+/* BUTTONS */
+.cta{margin:0 24px 10px;padding:14px;background:var(--gold);border:none;border-radius:14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--bg);cursor:pointer;width:calc(100% - 48px);transition:transform .15s,opacity .15s;flex-shrink:0}
+.cta:active{transform:scale(.98);opacity:.9}
+.cta:disabled{opacity:.4}
+.cta-outline{margin:0 24px 16px;padding:13px;background:none;border:.5px solid var(--border2);border-radius:14px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text2);cursor:pointer;width:calc(100% - 48px);transition:all .15s;flex-shrink:0}
+.cta-outline:active{background:var(--bg2)}
+
+/* INPUT */
+.input-area{padding:10px 24px 12px;flex-shrink:0}
+.input-wrap{display:flex;align-items:center;gap:10px;background:var(--bg2);border:.5px solid var(--border2);border-radius:28px;padding:10px 10px 10px 18px}
+.inp{flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--text);font-family:'Inter',sans-serif}
+.inp::placeholder{color:var(--text3)}
+.send{width:30px;height:30px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;flex-shrink:0}
+.send:active{transform:scale(.92)}
+.send svg{width:12px;height:12px;fill:var(--bg);margin-left:1px}
+
+/* NAV */
+.nav{display:flex;justify-content:space-around;padding:10px 0 28px;border-top:.5px solid var(--border);background:var(--bg);flex-shrink:0}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;opacity:.4;background:none;border:none;color:var(--text2);transition:opacity .15s}
+.nav-btn.act{opacity:1}
+.nav-btn svg{width:20px;height:20px}
+.nav-lbl{font-size:9px;letter-spacing:.5px;text-transform:uppercase}
+
+/* HISTORY */
+.hist-list{flex:1;overflow-y:auto;padding:0 24px 24px;display:flex;flex-direction:column;gap:10px}
+.hist-list::-webkit-scrollbar{display:none}
+.hist-card{background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;cursor:pointer}
+.hist-card:active{transform:scale(.99)}
+.hist-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.hist-fmt{font-size:12px;font-weight:500;color:var(--text)}
+.hist-date{font-size:10px;color:var(--text3)}
+.hist-places{font-size:11px;color:var(--text2);line-height:1.5}
+.hist-tag{display:inline-block;margin-top:8px;font-size:9px;padding:3px 10px;border-radius:10px;background:var(--gold-dim);color:var(--gold)}
+
+/* PROFILE */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.empty-icon{width:48px;height:48px;border-radius:14px;background:var(--bg2);border:.5px solid var(--border);margin-bottom:16px}
+.empty-title{font-size:16px;color:var(--text2);margin-bottom:6px}
+.empty-sub{font-size:12px;color:var(--text3);line-height:1.5}
+
+/* ACTIONS */
+.card-actions{display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:.5px solid var(--border)}
+.act-btn{flex:1;padding:8px;background:var(--bg3);border:.5px solid var(--border);border-radius:10px;font-size:10px;color:var(--text3);cursor:pointer;text-align:center;transition:all .15s;font-family:'Inter',sans-serif}
+.act-btn:active{background:var(--border);color:var(--text2)}
+.act-btn.fav-active{color:var(--gold);border-color:var(--gold-dim);background:var(--gold-dim)}
+.act-btn.danger{color:#E24B4A;border-color:#2A1010;background:#110808}
+.act-btn.danger:active{background:#1A0808}
+.share-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1A1A2E;border:.5px solid var(--border2);border-radius:20px;padding:10px 20px;font-size:12px;color:var(--text2);opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.share-toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- FORMAT -->
+<div class="screen active" id="s-format">
+  <div class="hdr">
+    <div class="logo">NIGHTOUT<span class="logo-dot"></span></div>
+    <div class="sub">Москва · вечера</div>
+  </div>
+  <div class="fmt-title">Какой вечер<br><em>планируем?</em></div>
+  <div class="fmt-grid">
+    <div class="fmt-card" data-fmt="свидание" onclick="selectFormat(this)">
+      <span class="fmt-icon">🌹</span>
+      <div class="fmt-name">Свидание</div>
+      <div class="fmt-desc">Ужин и прогулка вдвоём</div>
+    </div>
+    <div class="fmt-card" data-fmt="друзья" onclick="selectFormat(this)">
+      <span class="fmt-icon">👥</span>
+      <div class="fmt-name">С друзьями</div>
+      <div class="fmt-desc">Бары и активности</div>
+    </div>
+    <div class="fmt-card" data-fmt="культура" onclick="selectFormat(this)">
+      <span class="fmt-icon">🎨</span>
+      <div class="fmt-name">Культура</div>
+      <div class="fmt-desc">Музеи, галереи, театр</div>
+    </div>
+    <div class="fmt-card" data-fmt="ночной клуб" onclick="selectFormat(this)">
+      <span class="fmt-icon">🎵</span>
+      <div class="fmt-name">Клубная ночь</div>
+      <div class="fmt-desc">Танцы до утра</div>
+    </div>
+    <div class="fmt-card" data-fmt="день рождения" onclick="selectFormat(this)">
+      <span class="fmt-icon">🎂</span>
+      <div class="fmt-name">День рождения</div>
+      <div class="fmt-desc">Особый вечер</div>
+    </div>
+    <div class="fmt-card" data-fmt="прогулка" onclick="selectFormat(this)">
+      <span class="fmt-icon">🚶</span>
+      <div class="fmt-name">Прогулка</div>
+      <div class="fmt-desc">Неспешный маршрут</div>
+    </div>
+  </div>
+  <div class="nav" style="margin-top:auto">
+    <button class="nav-btn act" onclick="showTab('format')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      <span class="nav-lbl">Вечер</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="nav-lbl">История</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('fav')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+      <span class="nav-lbl">Избранное</span>
+    </button>
+    <button class="nav-btn" onclick="showTab('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      <span class="nav-lbl">Профиль</span>
+    </button>
+  </div>
+</div>
+
+<!-- DISTRICT -->
+<div class="screen" id="s-district">
+  <div class="hdr">
+    <div class="logo">NIGHTOUT<span class="logo-dot"></span></div>
+  </div>
+  <div class="dist-title">В каком районе?</div>
+  <div class="dist-sub">Подберём места рядом с вами</div>
+  <div class="dist-list">
+    <div class="dist-item" data-d="Центр" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Центр</div><div class="dist-desc">Кремль, Красная площадь, Тверская</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Патриаршие" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Патриаршие</div><div class="dist-desc">Малая Бронная, Спиридоновка</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Арбат" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Арбат</div><div class="dist-desc">Хамовники, Смоленская</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Китай-город" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Китай-город</div><div class="dist-desc">Покровка, Маросейка, Солянка</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Замоскворечье" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Замоскворечье</div><div class="dist-desc">Пятницкая, Новокузнецкая</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Красная Пресня" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Пресня / Сити</div><div class="dist-desc">Деловой центр, Баррикадная</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="ВДНХ" onclick="selectDistrict(this)">
+      <div><div class="dist-name">ВДНХ</div><div class="dist-desc">Алексеевская, Ботанический сад</div></div>
+      <div class="dist-check"></div>
+    </div>
+    <div class="dist-item" data-d="Таганка" onclick="selectDistrict(this)">
+      <div><div class="dist-name">Таганка</div><div class="dist-desc">Курская, Марксистская</div></div>
+      <div class="dist-check"></div>
+    </div>
+  </div>
+  <div class="extra-wrap">
+    <span class="extra-label">Пожелания (необязательно)</span>
+    <input class="extra-inp" id="extra-inp" placeholder="Бюджет, кухня, количество человек...">
+  </div>
+  <button class="cta" id="plan-btn" onclick="getPlan()" disabled>Составить вечер</button>
+  <button class="cta-outline" onclick="goBack('s-format')">Назад</button>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="s-loading">
+  <div class="hdr">
+    <div class="logo">NIGHTOUT<span class="logo-dot"></span></div>
+  </div>
+  <div class="loading">
+    <div class="spinner"></div>
+    <div class="load-txt">Составляем вечер</div>
+    <div class="load-sub" id="load-sub">Подбираем лучшие места...</div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="s-result">
+  <div class="res-hdr">
+    <div class="res-logo">NIGHTOUT<span class="logo-dot"></span></div>
+    <div class="res-badge" id="res-badge"></div>
+  </div>
+  <div class="res-ctx">
+    <div class="ctx-pill" id="ctx-time"></div>
+    <div class="ctx-pill" id="ctx-season"></div>
+  </div>
+  <div class="res-intro" id="res-intro"></div>
+  <div class="res-scroll" id="res-places"></div>
+  <div class="outro" id="res-outro"></div>
+  <div class="input-area">
+    <div class="input-wrap">
+      <input class="inp" placeholder="Другой вариант, вопрос..." id="chat-inp" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="send" onclick="sendChat()">
+        <svg viewBox="0 0 12 12"><path d="M1 6L11 6M7 2L11 6L7 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn act" id="nav-eve" onclick="showTab('result')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      <span class="nav-lbl">Вечер</span>
+    </button>
+    <button class="nav-btn" id="nav-hist" onclick="showTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="nav-lbl">История</span>
+    </button>
+    <button class="nav-btn" id="nav-fav" onclick="showTab('fav')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+      <span class="nav-lbl">Избранное</span>
+    </button>
+    <button class="nav-btn" id="nav-prof" onclick="showTab('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      <span class="nav-lbl">Профиль</span>
+    </button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="s-history">
+  <div class="hdr">
+    <div class="logo">NIGHTOUT<span class="logo-dot"></span></div>
+    <div class="sub">История вечеров</div>
+  </div>
+  <div class="hist-list" id="hist-list">
+    <div class="empty" style="flex:1">
+      <div class="empty-icon"></div>
+      <div class="empty-title">Пока пусто</div>
+      <div class="empty-sub">Здесь появятся ваши вечера</div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn" onclick="showTab('result')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span class="nav-lbl">Вечер</span></button>
+    <button class="nav-btn act" onclick="showTab('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="nav-lbl">История</span></button>
+    <button class="nav-btn" onclick="showTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span class="nav-lbl">Избранное</span></button>
+    <button class="nav-btn" onclick="showTab('profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span class="nav-lbl">Профиль</span></button>
+  </div>
+</div>
+
+<!-- FAV -->
+<div class="screen" id="s-fav">
+  <div class="hdr"><div class="logo">NIGHTOUT<span class="logo-dot"></span></div><div class="sub">Избранное</div></div>
+  <div class="hist-list" id="fav-list"></div>
+  <div class="nav">
+    <button class="nav-btn" onclick="showTab('result')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span class="nav-lbl">Вечер</span></button>
+    <button class="nav-btn" onclick="showTab('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="nav-lbl">История</span></button>
+    <button class="nav-btn act" onclick="showTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span class="nav-lbl">Избранное</span></button>
+    <button class="nav-btn" onclick="showTab('profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span class="nav-lbl">Профиль</span></button>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="screen" id="s-profile">
+  <div class="hdr"><div class="logo">NIGHTOUT<span class="logo-dot"></span></div><div class="sub">Профиль</div></div>
+  <div style="padding:0 24px;flex:1">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px">
+      <div style="width:56px;height:56px;border-radius:16px;background:#1A1A2E;border:.5px solid #2A2A42;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold)" id="prof-avatar">N</div>
+      <div><div style="font-size:16px;font-weight:500;color:var(--text)" id="prof-name">Гость</div><div style="font-size:11px;color:var(--text3);margin-top:2px" id="prof-count">0 вечеров</div></div>
+    </div>
+    <div style="background:var(--bg2);border:.5px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 16px;border-bottom:.5px solid var(--border);display:flex;justify-content:space-between">
+        <span style="font-size:13px;color:var(--text2)">Подписка</span>
+        <span style="font-size:13px;color:var(--gold)">Free</span>
+      </div>
+      <div style="padding:14px 16px;display:flex;justify-content:space-between">
+        <span style="font-size:13px;color:var(--text2)">Вечеров создано</span>
+        <span style="font-size:13px;color:var(--text)" id="prof-total">0</span>
+      </div>
+    </div>
+    <div style="background:#0F0A02;border:.5px solid var(--gold-dim);border-radius:16px;padding:16px">
+      <div style="font-size:13px;color:var(--gold);margin-bottom:4px">Nightout Pro</div>
+      <div style="font-size:11px;color:#6A5A2A;line-height:1.5;margin-bottom:12px">Безлимит · История вечеров · Приоритетные рекомендации</div>
+      <button style="background:var(--gold);border:none;border-radius:10px;padding:10px 20px;font-size:12px;font-weight:500;color:var(--bg);cursor:pointer;font-family:'Inter',sans-serif">299 ₽ / месяц</button>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn" onclick="showTab('result')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span class="nav-lbl">Вечер</span></button>
+    <button class="nav-btn" onclick="showTab('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="nav-lbl">История</span></button>
+    <button class="nav-btn" onclick="showTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span class="nav-lbl">Избранное</span></button>
+    <button class="nav-btn act" onclick="showTab('profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span class="nav-lbl">Профиль</span></button>
+  </div>
+</div>
+
+</div>
+<div class="share-toast" id="share-toast">Скопировано в буфер</div>
+<script>
+const API = window.location.origin;
+let selFmt = null, selDist = null, curScreen = 's-format';
+let history_data = JSON.parse(localStorage.getItem('nightout_history') || '[]');
+let totalEvenings = parseInt(localStorage.getItem('nightout_total') || '0');
+const urlParams = new URLSearchParams(window.location.search);
+let userName = urlParams.get('name') || 'друг';
+
+try {
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    if (tg.requestFullscreen) tg.requestFullscreen();
+    setTimeout(() => { tg.expand(); if (tg.requestFullscreen) tg.requestFullscreen(); }, 300);
+    const u = tg.initDataUnsafe?.user;
+    if (u) userName = u.first_name || 'друг';
+  }
+} catch(e) {}
+
+function showScreen(id) {
+  const old = document.getElementById(curScreen);
+  const next = document.getElementById(id);
+  old.classList.add('exit');
+  setTimeout(() => { old.classList.remove('active','exit'); }, 300);
+  next.classList.add('active');
+  curScreen = id;
+}
+
+function goBack(to) { showScreen(to); }
+
+function selectFormat(el) {
+  document.querySelectorAll('.fmt-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  selFmt = el.dataset.fmt;
+  setTimeout(() => showScreen('s-district'), 250);
+}
+
+function selectDistrict(el) {
+  document.querySelectorAll('.dist-item').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel');
+  selDist = el.dataset.d;
+  document.getElementById('plan-btn').disabled = false;
+}
+
+function getContext() {
+  const now = new Date();
+  const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const h = now.getHours();
+  const seasons = {0:'❄️ Зима',1:'❄️ Зима',2:'🌱 Весна',3:'🌱 Весна',4:'🌱 Весна',5:'☀️ Лето',6:'☀️ Лето',7:'☀️ Лето',8:'🍂 Осень',9:'🍂 Осень',10:'🍂 Осень',11:'❄️ Зима'};
+  return { day: days[now.getDay()], time: `${h}:${String(now.getMinutes()).padStart(2,'0')}`, season: seasons[now.getMonth()] };
+}
+
+async function getPlan() {
+  if (!selDist) return;
+  showScreen('s-loading');
+
+  const msgs = ['Подбираем лучшие места...', 'Изучаем район...', 'Составляем маршрут...', 'Почти готово...'];
+  let mi = 0;
+  const loadInt = setInterval(() => {
+    document.getElementById('load-sub').textContent = msgs[mi % msgs.length];
+    mi++;
+  }, 1500);
+
+  try {
+    const extra = document.getElementById('extra-inp').value.trim();
+    const resp = await fetch(`${API}/api/plan`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ format: selFmt, district: selDist, name: userName, extra })
+    });
+    const data = await resp.json();
+    clearInterval(loadInt);
+    if (data.error) throw new Error(data.error);
+    renderResult(data);
+    saveToHistory(data);
+  } catch(e) {
+    clearInterval(loadInt);
+    showScreen('s-district');
+    alert('Не удалось составить план. Попробуй ещё раз.');
+  }
+}
+
+function renderResult(data) {
+  const ctx = getContext();
+  const fmtLabels = {
+    'свидание':'🌹 Свидание','друзья':'👥 Друзья','культура':'🎨 Культура',
+    'ночной клуб':'🎵 Клуб','день рождения':'🎂 День рождения','прогулка':'🚶 Прогулка'
+  };
+  document.getElementById('res-badge').textContent = (fmtLabels[selFmt]||selFmt) + ' · ' + selDist;
+  document.getElementById('ctx-time').textContent = `${ctx.day}, ${ctx.time}`;
+  document.getElementById('ctx-season').textContent = ctx.season;
+  document.getElementById('res-intro').textContent = data.intro || '';
+  document.getElementById('res-outro').textContent = data.outro || '';
+
+  const container = document.getElementById('res-places');
+  container.innerHTML = '';
+
+  (data.places || []).forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'place-card' + (i === 0 ? ' featured' : '');
+
+    const tags = [];
+    if (p.rating) tags.push(`<span class="ptag ptag-gold">⭐ ${p.rating}</span>`);
+    if (p.category) tags.push(`<span class="ptag ptag-gray">${p.category}</span>`);
+    if (p.hours) tags.push(`<span class="ptag ptag-gray">${p.hours}</span>`);
+
+    card.innerHTML = `
+      <div class="place-top">
+        <div class="place-num">${p.num || i+1}</div>
+        <div class="place-info">
+          <div class="place-name">${p.name}</div>
+          <div class="place-addr">${p.address || ''}</div>
+        </div>
+      </div>
+      ${tags.length ? `<div class="place-row">${tags.join('')}</div>` : ''}
+      ${p.desc ? `<div class="place-desc">${p.desc}</div>` : ''}
+    `;
+    container.appendChild(card);
+
+    if (p.transition) {
+      const conn = document.createElement('div');
+      conn.className = 'connector';
+      conn.innerHTML = `<div class="conn-line"></div><div class="conn-txt">${p.transition}</div><div class="conn-line"></div>`;
+      container.appendChild(conn);
+    }
+  });
+
+  showScreen('s-result');
+}
+
+function saveToHistory(data) {
+  totalEvenings++;
+  localStorage.setItem('nightout_total', totalEvenings);
+
+  const fmtLabels = {
+    'свидание':'🌹 Свидание','друзья':'👥 Друзья','культура':'🎨 Культура',
+    'ночной клуб':'🎵 Клуб','день рождения':'🎂 День рождения','прогулка':'🚶 Прогулка'
+  };
+  const entry = {
+    fmt: (fmtLabels[selFmt]||selFmt) + ' · ' + selDist,
+    places: (data.places||[]).map(p=>p.name).join(' → '),
+    count: (data.places||[]).length,
+    date: new Date().toLocaleDateString('ru', {day:'numeric',month:'short'})
+  };
+  history_data.unshift(entry);
+  if (history_data.length > 20) history_data.pop();
+  localStorage.setItem('nightout_history', JSON.stringify(history_data));
+  renderHistory();
+  updateProfile();
+}
+
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!history_data.length) {
+    el.innerHTML = '<div class="empty" style="flex:1"><div class="empty-icon"></div><div class="empty-title">Пока пусто</div><div class="empty-sub">Здесь появятся ваши вечера</div></div>';
+    return;
+  }
+  el.innerHTML = history_data.map((h, i) => `
+    <div class="hist-card" id="hcard-${i}">
+      <div class="hist-top">
+        <div class="hist-fmt">${h.fmt}</div>
+        <div class="hist-date">${h.date}</div>
+      </div>
+      <div class="hist-places">${h.places}</div>
+      <div class="hist-tag">${h.count} ${h.count===1?'место':h.count<5?'места':'мест'}</div>
+      <div class="card-actions">
+        <button class="act-btn ${isFav(i)?'fav-active':''}" onclick="toggleFav(${i})" id="favbtn-${i}">${isFav(i)?'★ В избранном':'☆ В избранное'}</button>
+        <button class="act-btn" onclick="shareEvening(${i})">↗ Поделиться</button>
+        <button class="act-btn danger" onclick="deleteEvening(${i})">✕ Удалить</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function isFav(idx) {
+  const favs = JSON.parse(localStorage.getItem('nightout_favs') || '[]');
+  const h = history_data[idx];
+  return favs.some(f => f.fmt === h.fmt && f.places === h.places);
+}
+
+function toggleFav(idx) {
+  let favs = JSON.parse(localStorage.getItem('nightout_favs') || '[]');
+  const h = history_data[idx];
+  const exists = favs.findIndex(f => f.fmt === h.fmt && f.places === h.places);
+  if (exists >= 0) {
+    favs.splice(exists, 1);
+  } else {
+    favs.unshift({...h, savedAt: new Date().toLocaleDateString('ru', {day:'numeric',month:'short'})});
+  }
+  localStorage.setItem('nightout_favs', JSON.stringify(favs));
+  renderHistory();
+  renderFavs();
+}
+
+function deleteEvening(idx) {
+  history_data.splice(idx, 1);
+  localStorage.setItem('nightout_history', JSON.stringify(history_data));
+  totalEvenings = Math.max(0, totalEvenings - 1);
+  localStorage.setItem('nightout_total', totalEvenings);
+  renderHistory();
+  updateProfile();
+}
+
+function shareEvening(idx) {
+  const h = history_data[idx];
+  const text = `${h.fmt}\n\n${h.places}\n\nСпланировано через @N1GHTOUT_bot`;
+  if (navigator.share) {
+    navigator.share({ title: 'Nightout — план вечера', text }).catch(() => copyToClipboard(text));
+  } else {
+    copyToClipboard(text);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Скопировано в буфер')).catch(() => showToast('Не удалось скопировать'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('share-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function updateProfile() {
+  document.getElementById('prof-total').textContent = totalEvenings;
+  document.getElementById('prof-count').textContent = `${totalEvenings} ${totalEvenings===1?'вечер':totalEvenings<5?'вечера':'вечеров'}`;
+  document.getElementById('prof-avatar').textContent = userName[0]?.toUpperCase() || 'N';
+  document.getElementById('prof-name').textContent = userName;
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-inp');
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  showScreen('s-loading');
+  document.getElementById('load-sub').textContent = 'Обновляем план...';
+  try {
+    const resp = await fetch(`${API}/api/plan`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ format: selFmt, district: selDist, name: userName, extra: val })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    renderResult(data);
+    saveToHistory(data);
+  } catch(e) {
+    showScreen('s-result');
+  }
+}
+
+function showTab(tab) {
+  if (tab === 'result' || tab === 'format') {
+    showScreen('s-format');
+  } else {
+    const map = { history:'s-history', fav:'s-fav', profile:'s-profile' };
+    if (map[tab]) showScreen(map[tab]);
+  }
+  ['eve','hist','fav','prof'].forEach(id => document.getElementById('nav-'+id)?.classList.remove('act'));
+  const navMap = { format:'eve', result:'eve', history:'hist', fav:'fav', profile:'prof' };
+  if (navMap[tab]) document.getElementById('nav-'+navMap[tab])?.classList.add('act');
+}
+
+function renderFavs() {
+  const el = document.getElementById('fav-list');
+  if (!el) return;
+  const favs = JSON.parse(localStorage.getItem('nightout_favs') || '[]');
+  if (!favs.length) {
+    el.innerHTML = '<div class="empty" style="flex:1"><div class="empty-icon"></div><div class="empty-title">Пока пусто</div><div class="empty-sub">Сохраняйте понравившиеся вечера из истории</div></div>';
+    return;
+  }
+  el.innerHTML = favs.map((h, i) => `
+    <div class="hist-card">
+      <div class="hist-top">
+        <div class="hist-fmt">${h.fmt}</div>
+        <div class="hist-date">${h.savedAt||h.date}</div>
+      </div>
+      <div class="hist-places">${h.places}</div>
+      <div class="hist-tag">${h.count} ${h.count===1?'место':h.count<5?'места':'мест'}</div>
+      <div class="card-actions">
+        <button class="act-btn" onclick="shareFromFav(${i})">↗ Поделиться</button>
+        <button class="act-btn danger" onclick="deleteFav(${i})">✕ Удалить</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function shareFromFav(idx) {
+  const favs = JSON.parse(localStorage.getItem('nightout_favs') || '[]');
+  const h = favs[idx];
+  const text = `${h.fmt}\n\n${h.places}\n\nСпланировано через @N1GHTOUT_bot`;
+  if (navigator.share) {
+    navigator.share({ title: 'Nightout — план вечера', text }).catch(() => copyToClipboard(text));
+  } else {
+    copyToClipboard(text);
+  }
+}
+
+function deleteFav(idx) {
+  let favs = JSON.parse(localStorage.getItem('nightout_favs') || '[]');
+  favs.splice(idx, 1);
+  localStorage.setItem('nightout_favs', JSON.stringify(favs));
+  renderFavs();
+}
+
+renderHistory();
+renderFavs();
+updateProfile();
+</script>
+</body>
+</html>
