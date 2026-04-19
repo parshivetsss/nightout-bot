@@ -77,6 +77,41 @@ class Handler(BaseHTTPRequestHandler):
             except:
                 self.send_response(404)
                 self.end_headers()
+        elif parsed.path == "/api/weather":
+            try:
+                import urllib.request as ur
+                req = ur.Request(
+                    "https://wttr.in/Moscow?format=j1",
+                    headers={"User-Agent": "curl/7.68.0"}
+                )
+                with ur.urlopen(req, timeout=5) as r:
+                    data = json.loads(r.read())
+                c = data["current_condition"][0]
+                temp = c["temp_C"]
+                desc = c["weatherDesc"][0]["value"]
+                is_rain = any(w in desc.lower() for w in ["rain","drizzle","shower","snow","thunder","sleet"])
+                is_cold = int(temp) < 5
+                is_hot = int(temp) > 25
+                emoji = "🌧" if is_rain else ("❄️" if is_cold else ("☀️" if is_hot else "🌤"))
+                result = json.dumps({
+                    "temp": temp,
+                    "desc": desc,
+                    "emoji": emoji,
+                    "is_rain": is_rain,
+                    "is_cold": is_cold,
+                    "is_hot": is_hot
+                }, ensure_ascii=False).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(result)
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"temp":"?","desc":"","emoji":"🌤","is_rain":False}).encode())
         else:
             self.send_response(404)
             self.end_headers()
