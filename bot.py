@@ -3,8 +3,51 @@ import json
 import datetime
 import math
 import random
+import asyncio
 import anthropic
+import urllib.request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from telegram.ext import JobQueue
+
+def get_weather():
+    """Получаем погоду в Москве через wttr.in (бесплатно, без API ключа)"""
+    try:
+        url = "https://wttr.in/Moscow?format=j1"
+        req = urllib.request.Request(url, headers={"User-Agent": "curl/7.68.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+        current = data["current_condition"][0]
+        temp = current["temp_C"]
+        desc = current["weatherDesc"][0]["value"].lower()
+        feels = current["FeelsLikeC"]
+        rain = int(current.get("precipMM", "0").split(".")[0]) if "." in current.get("precipMM","0") else int(current.get("precipMM","0"))
+
+        is_rain = any(w in desc for w in ["rain","drizzle","shower","thunder","sleet","snow","blizzard"])
+        is_cold = int(temp) < 5
+        is_hot = int(temp) > 25
+        is_wind = int(current.get("windspeedKmph","0")) > 30
+
+        weather_note = f"Погода в Москве: {temp}°C, ощущается как {feels}°C, {desc}."
+        if is_rain:
+            weather_note += " Идёт дождь — предлагай только крытые места, никаких веранд и прогулок."
+        elif is_cold:
+            weather_note += " Холодно — предлагай тёплые места с уютной атмосферой."
+        elif is_hot:
+            weather_note += " Жарко — приоритет верандам, паркам и местам с кондиционером."
+        if is_wind:
+            weather_note += " Сильный ветер — избегай открытых пространств."
+
+        weather_emoji = "🌧" if is_rain else ("❄️" if is_cold else ("☀️" if is_hot else "🌤"))
+        return weather_note, weather_emoji, temp, is_rain
+    except Exception as e:
+        print(f"Погода недоступна: {e}")
+        return "", "🌤", "?", False
+
+# Хранение пользователей для уведомлений
+user_registry = {}
+
+def register_user(user_id, name):
+    user_registry[user_id] = {"name": name, "id": user_id}
 from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -104,8 +147,8 @@ def get_main_keyboard(name=""):
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=url))],
-            [KeyboardButton("🏙 Новый вечер"),    KeyboardButton("🔄 Другой вариант")],
-            [KeyboardButton("💰 Что по деньгам?"), KeyboardButton("ℹ️ Помощь")],
+            [KeyboardButton("🏙 Новый вечер"), KeyboardButton("🎲 Сюрприз")],
+            [KeyboardButton("🔄 Другой вариант"), KeyboardButton("ℹ️ Помощь")],
         ],
         resize_keyboard=True,
     )
@@ -371,6 +414,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_district[user_id] = None
     user_format[user_id] = None
     name = update.effective_user.first_name
+    register_user(user_id, name)
     await update.message.reply_text(
         "Эти кнопки всегда доступны 👇",
         reply_markup=get_main_keyboard(name)
@@ -422,6 +466,15 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Район — {district}.\n\nЕсть пожелания по кухне, бюджету или компании? Или просто напиши \"вперёд\" — и я сразу составлю план."
             )
 
+    elif data.startswith("rate_"):
+        score = data.replace("rate_", "")
+        responses = {
+            "5": "Рад слышать! Приятного вечера 🌙",
+            "3": "Понял. Буду лучше подбирать.",
+            "1": "Жаль. Напиши что не понравилось — исправлюсь."
+        }
+        await query.edit_message_text(responses.get(score, "Спасибо за оценку."))
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     name = update.effective_user.first_name
@@ -458,9 +511,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "ℹ️ Помощь":
         await update.message.reply_text(
             "Просто напиши что хочешь — я подберу вечер.\n\nНапример:\n— Хочу романтический ужин в центре\n— Куда пойти с друзьями в пятницу\n— Клубная ночь на Патриарших\n— Что-нибудь необычное до 3000 рублей",
-            reply_markup=MAIN_KEYBOARD
+            reply_markup=get_main_keyboard(name)
         )
         return
+
+    if text == "🎲 Сюрприз":
+        now2, day2, time2 = get_moscow_time()
+        weather_note, weather_emoji, temp, is_rain = get_weather()
+        formats = ["свидание", "друзья", "культура", "прогулка"]
+        if day2 in ["пятница", "суббота"]:
+            formats.append("ночной клуб")
+        import random as _r
+        rand_fmt = _r.choice(formats)
+        rand_district = _r.choice(list(DISTRICTS.keys()))
+        user_format[user_id] = rand_fmt
+        user_district[user_id] = rand_district
+        text = f"Сюрприз: {rand_fmt} в районе {rand_district}"
+        await update.message.reply_text(
+            f"{weather_emoji} Берёшь риск — хорошо. Составляю сюрприз-вечер...",
+            reply_markup=get_main_keyboard(name)
+        )
 
     now, day_name, time_str = get_moscow_time()
     moscow_time = f"Сейчас в Москве: {day_name}, {time_str}"
@@ -506,9 +576,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     places_text = format_places(places, show_price=show_price)
 
+    weather_note, weather_emoji, temp, is_rain = get_weather()
     user_message = (
         f"{moscow_time}\n"
         f"Сезон: {season}. {season_tip}\n"
+        f"{weather_note}\n"
         f"Меня зовут {name}. Мой запрос: {text}\n"
         f"{format_note}\n{district_note}\n{note}\n{price_note}\n\n"
         f"Доступные заведения:\n{places_text}\n\n"
@@ -534,11 +606,57 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(answer)
 
+    # Предлагаем оценить если это был новый запрос (не уточнение)
+    if not is_followup(text) and not is_repeat_request(text) and "ВЕЧЕР ГОТОВ" in answer:
+        rating_keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("👍 Отлично", callback_data="rate_5"),
+                InlineKeyboardButton("👌 Нормально", callback_data="rate_3"),
+                InlineKeyboardButton("👎 Не то", callback_data="rate_1"),
+            ]
+        ])
+        await update.message.reply_text(
+            "Как план?",
+            reply_markup=rating_keyboard
+        )
+
+async def send_notifications(context):
+    """Отправляем уведомления дважды в неделю — пт и вс вечером"""
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=3)))
+    _, weather_emoji, temp, is_rain = get_weather()
+    weather_txt = f"На улице {temp}°C{'☔ дождь' if is_rain else ''}."
+
+    day = now.weekday()
+    if day == 4:  # пятница
+        msg = f"{weather_emoji} Пятница вечером — лучшее время выдохнуть. {weather_txt}\n\nКуда идём?"
+    elif day == 6:  # воскресенье
+        msg = f"{weather_emoji} Воскресенье ещё не кончилось. {weather_txt}\n\nУспеваем провести вечер?"
+    else:
+        return
+
+    for uid, udata in list(user_registry.items()):
+        try:
+            kb = ReplyKeyboardMarkup(
+                [[KeyboardButton("🎲 Сюрприз"), KeyboardButton("🏙 Новый вечер")]],
+                resize_keyboard=True
+            )
+            await context.bot.send_message(chat_id=uid, text=msg, reply_markup=kb)
+        except Exception as e:
+            print(f"Не удалось отправить уведомление {uid}: {e}")
+
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Уведомления — каждый день в 19:00 МСК, срабатывает только пт и вс
+    job_queue = app.job_queue
+    job_queue.run_daily(
+        send_notifications,
+        time=datetime.time(hour=19, minute=0, tzinfo=datetime.timezone(datetime.timedelta(hours=3)))
+    )
+
     print("Nightout бот запущен")
     app.run_polling()
 
