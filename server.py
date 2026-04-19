@@ -93,9 +93,26 @@ class Handler(BaseHTTPRequestHandler):
                 is_cold = int(temp) < 5
                 is_hot = int(temp) > 25
                 emoji = "🌧" if is_rain else ("❄️" if is_cold else ("☀️" if is_hot else "🌤"))
+                WEATHER_RU = {
+                    "sunny": "солнечно", "clear": "ясно", "partly cloudy": "переменная облачность",
+                    "cloudy": "облачно", "overcast": "пасмурно", "mist": "туман", "fog": "туман",
+                    "light rain": "лёгкий дождь", "moderate rain": "дождь", "heavy rain": "сильный дождь",
+                    "light drizzle": "морось", "drizzle": "морось", "freezing drizzle": "ледяная морось",
+                    "light snow": "лёгкий снег", "moderate snow": "снег", "heavy snow": "сильный снег",
+                    "blizzard": "метель", "thundery outbreaks possible": "гроза возможна",
+                    "patchy rain possible": "местами дождь", "patchy snow possible": "местами снег",
+                    "light sleet": "мокрый снег", "blowing snow": "поземок",
+                    "freezing fog": "ледяной туман", "patchy light rain": "небольшой дождь",
+                    "light rain shower": "ливень", "torrential rain shower": "ливень",
+                    "patchy light drizzle": "морось", "freezing drizzle": "ледяная морось",
+                    "patchy light snow": "небольшой снег", "light snow showers": "снегопад",
+                    "thunder": "гроза", "thunderstorm": "гроза",
+                }
+                desc_lower = desc.lower()
+                desc_ru = next((v for k, v in WEATHER_RU.items() if k in desc_lower), desc)
                 result = json.dumps({
                     "temp": temp,
-                    "desc": desc,
+                    "desc": desc_ru,
                     "emoji": emoji,
                     "is_rain": is_rain,
                     "is_cold": is_cold,
