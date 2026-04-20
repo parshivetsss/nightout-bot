@@ -142,8 +142,11 @@ DISTRICT_BUTTONS = [
     ],
 ]
 
-def get_main_keyboard(name=""):
-    url = f"https://nightout-bot-production.up.railway.app?name={name}" if name else "https://nightout-bot-production.up.railway.app"
+def get_main_keyboard(name="", username=""):
+    params = f"?name={name}"
+    if username:
+        params += f"&username={username}"
+    url = f"https://nightout-bot-production.up.railway.app{params}"
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton("🗺 Открыть приложение", web_app=WebAppInfo(url=url))],
@@ -471,10 +474,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_district[user_id] = None
     user_format[user_id] = None
     name = update.effective_user.first_name
+    username = update.effective_user.username or ""
+    username = update.effective_user.username or ""
     register_user(user_id, name)
     await update.message.reply_text(
         "Эти кнопки всегда доступны 👇",
-        reply_markup=get_main_keyboard(name)
+        reply_markup=get_main_keyboard(name, username)
     )
     await update.message.reply_text(
         WELCOME.format(name=name),
@@ -551,7 +556,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_format[user_id] = None
         await update.message.reply_text(
             WELCOME.format(name=name),
-            reply_markup=get_main_keyboard(name)
+            reply_markup=get_main_keyboard(name, username)
         )
         await update.message.reply_text(
             WELCOME.format(name=name),
