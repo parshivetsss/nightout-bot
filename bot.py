@@ -721,14 +721,28 @@ def main():
     )
 
     print("Nightout бот запущен")
+
+    # Принудительно удаляем webhook и ждём перед стартом
+    import urllib.request as _ur
+    try:
+        _ur.urlopen(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=5)
+        print("Webhook удалён")
+    except:
+        pass
+    _time.sleep(3)
+
     for attempt in range(5):
         try:
-            app.run_polling(drop_pending_updates=True)
+            app.run_polling(drop_pending_updates=True, allowed_updates=["message", "callback_query"])
             break
         except Exception as e:
             if "Conflict" in str(e):
-                print(f"Конфликт бота, ждём 5 секунд... (попытка {attempt+1})")
-                _time.sleep(5)
+                print(f"Конфликт бота, ждём 10 секунд... (попытка {attempt+1}/5)")
+                try:
+                    _ur.urlopen(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=5)
+                except:
+                    pass
+                _time.sleep(10)
             else:
                 raise
 
