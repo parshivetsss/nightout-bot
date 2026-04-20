@@ -83,6 +83,47 @@ class Handler(BaseHTTPRequestHandler):
             except:
                 self.send_response(404)
                 self.end_headers()
+        elif parsed.path.startswith("/plan/"):
+            plan_id = parsed.path.replace("/plan/", "")
+            plan = SHARED_PLANS.get(plan_id)
+            if plan:
+                # Отдаём HTML страницу которая показывает план и кнопку открыть в Telegram
+                places = plan.get("places", "")
+                fmt = plan.get("fmt", "Вечер")
+                html = f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta property="og:title" content="Nightout — {fmt}">
+<meta property="og:description" content="{places}">
+<title>Nightout — {fmt}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#07070F;color:#EEEEF8;font-family:system-ui;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}}
+.logo{{font-size:20px;letter-spacing:6px;margin-bottom:24px;color:#C9AA71}}
+.card{{background:#0C0C18;border:1px solid #181828;border-radius:16px;padding:20px;max-width:340px;width:100%;margin-bottom:20px}}
+.fmt{{font-size:14px;color:#C9AA71;margin-bottom:12px}}
+.place{{font-size:13px;color:#7878A0;margin:6px 0;line-height:1.5}}
+.btn{{display:block;background:#C9AA71;color:#07070F;text-decoration:none;padding:14px 24px;border-radius:14px;font-size:14px;font-weight:500;text-align:center;max-width:340px;width:100%}}
+.btn:active{{opacity:.9}}
+.sub{{font-size:11px;color:#333350;margin-top:16px;text-align:center}}
+</style></head><body>
+<div class="logo">NIGHTOUT</div>
+<div class="card">
+<div class="fmt">{fmt}</div>
+{"".join(f'<div class="place">· {p.strip()}</div>' for p in places.split("→"))}
+</div>
+<a class="btn" href="https://t.me/N1GHTOUT_bot/NIGHTOUT">Открыть в Telegram</a>
+<div class="sub">Создай свой вечер в Nightout</div>
+</body></html>"""
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode())
+            else:
+                self.send_response(302)
+                self.send_header("Location", "https://t.me/N1GHTOUT_bot/NIGHTOUT")
+                self.end_headers()
         elif parsed.path == "/api/weather":
             try:
                 import urllib.request as ur
