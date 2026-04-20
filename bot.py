@@ -707,6 +707,7 @@ async def send_notifications(context):
             print(f"Не удалось отправить уведомление {uid}: {e}")
 
 def main():
+    import time as _time
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
@@ -720,7 +721,16 @@ def main():
     )
 
     print("Nightout бот запущен")
-    app.run_polling()
+    for attempt in range(5):
+        try:
+            app.run_polling(drop_pending_updates=True)
+            break
+        except Exception as e:
+            if "Conflict" in str(e):
+                print(f"Конфликт бота, ждём 5 секунд... (попытка {attempt+1})")
+                _time.sleep(5)
+            else:
+                raise
 
 if __name__ == "__main__":
     main()
