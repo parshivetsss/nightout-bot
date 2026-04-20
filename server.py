@@ -233,7 +233,16 @@ def run_server():
     server.serve_forever()
 
 if __name__ == "__main__":
+    import time as _time
+
+    # Запускаем веб-сервер
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
+
+    # Ждём 5 секунд чтобы старый процесс точно завершился
+    print("Ждём завершения старого процесса...")
+    _time.sleep(5)
+
+    # Запускаем бота
     from bot import main
     main()
