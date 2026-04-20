@@ -8,6 +8,9 @@ from urllib.parse import urlparse
 CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
 claude = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
+# Хранилище планов для шаринга — ключ: короткий ID, значение: данные плана
+SHARED_PLANS = {}
+
 SYSTEM_PROMPT = """Ты — Nightout. Личный консьерж по вечерам в Москве. Говоришь тепло, уверенно, с лёгкой иронией. Никогда не пишешь как справочник.
 
 Грамотность — абсолютный приоритет. Никаких орфографических ошибок.
@@ -184,6 +187,38 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+        elif self.path == "/api/save":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length))
+                import random, string
+                plan_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+                SHARED_PLANS[plan_id] = body
+                result = json.dumps({"id": plan_id}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(result)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+        elif self.path == "/api/load":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length))
+                plan_id = body.get("id", "")
+                plan = SHARED_PLANS.get(plan_id)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(plan or {}, ensure_ascii=False).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
