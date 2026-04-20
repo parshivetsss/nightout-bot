@@ -90,31 +90,121 @@ class Handler(BaseHTTPRequestHandler):
                 # Отдаём HTML страницу которая показывает план и кнопку открыть в Telegram
                 places = plan.get("places", "")
                 fmt = plan.get("fmt", "Вечер")
+                district = fmt.split("·")[1].strip() if "·" in fmt else "Москве"
+                fmt_clean = fmt.split("·")[0].strip() if "·" in fmt else fmt
+                places_list = [p.strip() for p in places.split("→") if p.strip()]
+                places_html = ""
+                for idx, p in enumerate(places_list):
+                    num = idx + 1
+                    is_first = ' first' if idx == 0 else ''
+                    places_html += f'<div class="place-card{is_first}"><div class="num">{num}</div><div class="pname">{p}</div></div>'
+                    if idx < len(places_list) - 1:
+                        places_html += '<div class="connector"><div class="cline"></div><div class="cdot"></div><div class="cline"></div></div>'
+
                 html = f"""<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta property="og:title" content="Nightout — {fmt}">
-<meta property="og:description" content="{places}">
-<title>Nightout — {fmt}</title>
+<meta property="og:title" content="Nightout — вечер в {district}">
+<meta property="og:description" content="{' → '.join(places_list)}">
+<meta property="og:site_name" content="Nightout">
+<title>Nightout — вечер в {district}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Geologica:wght@200;300;400&display=swap" rel="stylesheet">
 <style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#07070F;color:#EEEEF8;font-family:system-ui;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}}
-.logo{{font-size:20px;letter-spacing:6px;margin-bottom:24px;color:#C9AA71}}
-.card{{background:#0C0C18;border:1px solid #181828;border-radius:16px;padding:20px;max-width:340px;width:100%;margin-bottom:20px}}
-.fmt{{font-size:14px;color:#C9AA71;margin-bottom:12px}}
-.place{{font-size:13px;color:#7878A0;margin:6px 0;line-height:1.5}}
-.btn{{display:block;background:#C9AA71;color:#07070F;text-decoration:none;padding:14px 24px;border-radius:14px;font-size:14px;font-weight:500;text-align:center;max-width:340px;width:100%}}
-.btn:active{{opacity:.9}}
-.sub{{font-size:11px;color:#333350;margin-top:16px;text-align:center}}
+*{{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}}
+body{{background:#07070F;color:#EEEEF8;font-family:'Geologica',sans-serif;font-weight:300;min-height:100vh;min-height:100dvh;overflow-x:hidden}}
+
+.page{{max-width:420px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}}
+
+.header{{padding:40px 0 0;text-align:center}}
+.logo{{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;letter-spacing:6px;color:#EEEEF8;display:inline-flex;align-items:center;gap:4px}}
+.logo-dot{{width:4px;height:4px;background:#C9AA71;border-radius:50%}}
+.tagline{{font-size:10px;letter-spacing:3px;color:#333350;text-transform:uppercase;margin-top:6px}}
+
+.hero{{padding:32px 0 24px;text-align:center}}
+.hero-title{{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;line-height:1.3;color:#EEEEF8}}
+.hero-title em{{font-style:italic;color:#C9AA71}}
+.hero-sub{{font-size:13px;color:#7878A0;margin-top:10px;line-height:1.6}}
+
+.badge-row{{display:flex;justify-content:center;gap:8px;margin-bottom:24px}}
+.badge{{font-size:10px;padding:6px 14px;border-radius:20px;background:#0C0C18;border:.5px solid #181828;color:#7878A0}}
+.badge-gold{{background:#1A150A;border-color:#2E2010;color:#C9AA71}}
+
+.plan-section{{flex:1}}
+.plan-label{{font-size:9px;letter-spacing:2px;color:#333350;text-transform:uppercase;text-align:center;margin-bottom:16px}}
+
+.place-card{{background:#0C0C18;border:.5px solid #181828;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px}}
+.place-card.first{{border-left:2px solid #C9AA71;border-radius:0 14px 14px 0;border-top:.5px solid #181828;border-right:.5px solid #181828;border-bottom:.5px solid #181828}}
+.num{{width:26px;height:26px;border-radius:7px;background:#111120;border:.5px solid #222234;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;color:#C9AA71;flex-shrink:0}}
+.pname{{font-size:14px;color:#EEEEF8;font-weight:400}}
+
+.connector{{display:flex;align-items:center;gap:8px;padding:6px 0;justify-content:center}}
+.cline{{width:40px;height:.5px;background:#181828}}
+.cdot{{width:4px;height:4px;background:#222234;border-radius:50%}}
+
+.cta-section{{padding:28px 0 20px;text-align:center}}
+.cta{{display:inline-block;background:#C9AA71;color:#07070F;text-decoration:none;padding:15px 0;border-radius:14px;font-size:14px;font-weight:400;font-family:'Geologica',sans-serif;width:100%;letter-spacing:.5px;transition:opacity .15s}}
+.cta:active{{opacity:.85}}
+
+.pitch{{padding:0 0 32px;text-align:center}}
+.pitch-title{{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:#EEEEF8;margin-bottom:8px}}
+.pitch-text{{font-size:12px;color:#555570;line-height:1.7}}
+
+.features{{display:flex;gap:10px;margin:20px 0 0;justify-content:center;flex-wrap:wrap}}
+.feat{{font-size:10px;padding:6px 12px;border-radius:10px;background:#0C0C18;border:.5px solid #181828;color:#7878A0}}
+
+.footer{{padding:20px 0 32px;text-align:center}}
+.footer-text{{font-size:10px;color:#222234;letter-spacing:1px}}
+
+@keyframes fadeUp{{from{{opacity:0;transform:translateY(12px)}}to{{opacity:1;transform:translateY(0)}}}}
+.place-card,.connector{{animation:fadeUp .5s ease both}}
+.place-card:nth-child(1){{animation-delay:.1s}}
+.connector:nth-child(2){{animation-delay:.2s}}
+.place-card:nth-child(3){{animation-delay:.3s}}
+.connector:nth-child(4){{animation-delay:.4s}}
+.place-card:nth-child(5){{animation-delay:.5s}}
 </style></head><body>
-<div class="logo">NIGHTOUT</div>
-<div class="card">
-<div class="fmt">{fmt}</div>
-{"".join(f'<div class="place">· {p.strip()}</div>' for p in places.split("→"))}
+<div class="page">
+
+<div class="header">
+  <div class="logo">NIGHTOUT<div class="logo-dot"></div></div>
+  <div class="tagline">Планировщик вечеров в Москве</div>
 </div>
-<a class="btn" href="https://t.me/N1GHTOUT_bot/NIGHTOUT">Открыть в Telegram</a>
-<div class="sub">Создай свой вечер в Nightout</div>
+
+<div class="hero">
+  <div class="hero-title">Кто-то уже спланировал<br><em>вечер в {district}</em></div>
+  <div class="hero-sub">Вот что получилось — {len(places_list)} места,<br>готовый маршрут на вечер</div>
+</div>
+
+<div class="badge-row">
+  <div class="badge badge-gold">{fmt_clean}</div>
+  <div class="badge">{district}</div>
+</div>
+
+<div class="plan-section">
+  <div class="plan-label">Маршрут вечера</div>
+  {places_html}
+</div>
+
+<div class="cta-section">
+  <a class="cta" href="https://t.me/N1GHTOUT_bot/NIGHTOUT">Составить свой вечер</a>
+</div>
+
+<div class="pitch">
+  <div class="pitch-title">Что такое Nightout?</div>
+  <div class="pitch-text">Персональный консьерж по вечерам в Москве.<br>Выбираешь формат и район — получаешь готовый<br>маршрут с проверенными местами за 10 секунд.</div>
+  <div class="features">
+    <div class="feat">15 000+ мест</div>
+    <div class="feat">Реальные рейтинги</div>
+    <div class="feat">Учёт погоды</div>
+  </div>
+</div>
+
+<div class="footer">
+  <div class="footer-text">NIGHTOUT · МОСКВА · ВЕЧЕРА</div>
+</div>
+
+</div>
 </body></html>"""
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
