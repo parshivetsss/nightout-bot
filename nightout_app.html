@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Nightout</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Geologica:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070F;--bg2:#0C0C18;--bg3:#111120;--gold:#C8A96E;--gold2:#A8893E;--gold-dim:#2A220E;--border:#1C1C2E;--border2:#252535;--text:#E8E8F2;--text2:#8888A8;--text3:#3A3A52;--r:16px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:'Geologica',sans-serif;font-weight:300;height:100%;overflow:hidden;user-select:none}
+.app{height:100dvh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease;transform:translateX(20px)}
+.screen.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.screen.exit{opacity:0;transform:translateX(-20px)}
+
+/* HEADER */
+.hdr{padding:max(env(safe-area-inset-top,0px) + 56px, 56px) 24px 0;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;letter-spacing:5px;color:var(--text);display:flex;align-items:center;gap:3px}
+.logo-dot{width:4px;height:4px;background:var(--gold);border-radius:50%;margin-bottom:1px}
+.hdr-right{font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;text-align:right}
+
+/* FORMAT */
+.fmt-hero{padding:14px 24px 0;flex-shrink:0}
+.fmt-time{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--text);letter-spacing:2px;font-variant-numeric:lining-nums tabular-nums;line-height:1}
+.fmt-day{font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+.fmt-title{padding:14px 24px 0;flex-shrink:0}
+.fmt-title h1{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;line-height:1.2}
+.fmt-title h1 em{font-style:italic;color:var(--gold)}
+
+.weather-strip{margin:0;display:flex;align-items:center;gap:6px;background:var(--bg2);border:.5px solid var(--border);border-radius:8px;padding:6px 12px;flex-shrink:0;align-self:flex-start}
+.weather-strip span{font-size:10px;color:var(--text2)}
+
+.date-row{padding:10px 24px 0;flex-shrink:0}
+.date-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.date-scroll::-webkit-scrollbar{display:none}
+.dc{padding:6px 14px;border-radius:20px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:'Geologica',sans-serif}
+.dc.sel{background:var(--gold-dim);border-color:#3A2A0E;color:var(--gold)}
+
+.surprise{margin:10px 24px 0;padding:13px 16px;background:var(--gold-dim);border:.5px solid #3A2A0E;border-radius:var(--r);display:flex;align-items:center;gap:12px;cursor:pointer;transition:opacity .15s;flex-shrink:0}
+.surprise:active{opacity:.85}
+.s-icon{font-size:18px}
+.s-body{flex:1}
+.s-title{font-size:13px;font-weight:400;color:var(--gold)}
+.s-sub{font-size:10px;color:var(--gold2);margin-top:1px}
+.s-arr{font-size:16px;color:var(--gold2)}
+
+.fmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 24px 0;flex:1;align-content:start;overflow-y:auto;min-height:0}.fmt-grid::-webkit-scrollbar{display:none}
+.fc{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:18px 16px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.fc::after{content:'';position:absolute;inset:0;background:var(--gold);opacity:0;transition:opacity .18s;border-radius:inherit}
+.fc:active{transform:scale(.97)}
+.fc.sel{border-color:var(--gold)}
+.fc.sel::after{opacity:.04}
+.fc-icon{font-size:22px;display:block;margin-bottom:10px;line-height:1}
+.fc-name{font-size:13px;font-weight:400;color:var(--text);margin-bottom:2px}
+.fc-desc{font-size:10px;color:var(--text3);line-height:1.4}
+
+.quick-bar{padding:10px 24px 8px;flex-shrink:0}
+.qi{display:flex;align-items:center;gap:8px;background:var(--bg2);border:.5px solid var(--border2);border-radius:28px;padding:9px 9px 9px 16px;transition:border-color .15s}
+.qi:focus-within{border-color:var(--gold2)}
+.qi input{flex:1;background:none;border:none;outline:none;font-size:13px;font-family:'Geologica',sans-serif;font-weight:300;color:var(--text)}
+.qi input::placeholder{color:var(--text3)}
+.qi-btn{width:30px;height:30px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
+.qi-btn:active{transform:scale(.9)}
+.qi-btn svg{width:12px;height:12px;fill:var(--bg);margin-left:1px}
+
+/* NAV */
+.nav{display:flex;justify-content:space-around;padding:8px 0 max(env(safe-area-inset-bottom,8px),8px);border-top:.5px solid var(--border);background:var(--bg);flex-shrink:0}
+.ni{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;opacity:.35;background:none;border:none;color:var(--text2);transition:opacity .15s;padding:4px 14px}
+.ni.act{opacity:1}
+.ni svg{width:20px;height:20px}
+.ni span{font-size:8px;letter-spacing:.8px;text-transform:uppercase;font-family:'Geologica',sans-serif}
+
+/* DISTRICT */
+.dist-head{padding:14px 24px 8px;flex-shrink:0}
+.dist-head h2{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--text);margin-bottom:3px}
+.dist-head p{font-size:11px;color:var(--text3)}
+.dist-list{flex:1;overflow-y:auto;padding:4px 24px 8px;display:flex;flex-direction:column;gap:6px}
+.dist-list::-webkit-scrollbar{display:none}
+.di{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border:.5px solid var(--border);border-radius:13px;cursor:pointer;transition:all .15s}
+.di:active{transform:scale(.985)}
+.di.sel{border-color:var(--gold);background:#0D0D1C}
+.di-name{font-size:13px;font-weight:400;color:var(--text)}
+.di-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.di-radio{width:18px;height:18px;border-radius:50%;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0}
+.di.sel .di-radio{background:var(--gold);border-color:var(--gold)}
+.di-radio::after{content:'';width:6px;height:4px;border-left:1.5px solid var(--bg);border-bottom:1.5px solid var(--bg);transform:rotate(-45deg) translateY(-1px);opacity:0;transition:opacity .18s}
+.di.sel .di-radio::after{opacity:1}
+.custom-field{width:100%;background:var(--bg2);border:.5px solid var(--border2);border-radius:12px;padding:11px 16px;font-size:13px;font-family:'Geologica',sans-serif;font-weight:300;color:var(--text);outline:none;transition:border-color .15s;display:none;margin-top:6px}
+.custom-field::placeholder{color:var(--text3)}
+.custom-field:focus{border-color:var(--gold2)}
+
+.extra-area{padding:6px 24px 8px;flex-shrink:0}
+.extra-lbl{font-size:9px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;display:block}
+.extra-field{width:100%;background:var(--bg2);border:.5px solid var(--border2);border-radius:12px;padding:11px 16px;font-size:13px;font-family:'Geologica',sans-serif;font-weight:300;color:var(--text);outline:none;transition:border-color .15s}
+.extra-field::placeholder{color:var(--text3)}
+.extra-field:focus{border-color:var(--gold2)}
+
+.btn-gold{margin:0 24px 8px;padding:15px;background:var(--gold);border:none;border-radius:var(--r);font-family:'Geologica',sans-serif;font-size:14px;font-weight:400;color:var(--bg);cursor:pointer;width:calc(100% - 48px);transition:all .15s;flex-shrink:0}
+.btn-gold:active{transform:scale(.98);opacity:.92}
+.btn-gold:disabled{opacity:.3}
+.btn-ghost{margin:0 24px 14px;padding:13px;background:none;border:.5px solid var(--border2);border-radius:var(--r);font-family:'Geologica',sans-serif;font-size:13px;font-weight:300;color:var(--text2);cursor:pointer;width:calc(100% - 48px);transition:all .15s;flex-shrink:0}
+.btn-ghost:active{background:var(--bg2)}
+
+/* LOADING */
+.load-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:40px}
+.spinner{width:36px;height:36px;border:1px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--text2)}
+.load-hint{font-size:11px;color:var(--text3);letter-spacing:1px}
+
+/* RESULT */
+.res-top{padding:max(env(safe-area-inset-top,0px) + 52px,52px) 24px 10px;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
+.res-logo{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;letter-spacing:4px;display:flex;align-items:center;gap:3px}
+.res-badge{font-size:9px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;background:var(--gold-dim);border:.5px solid #3A2A0E;padding:5px 11px;border-radius:20px;max-width:160px;text-align:right;line-height:1.5}
+.res-chips{display:flex;gap:6px;padding:0 24px 12px;flex-shrink:0}
+.res-chip{font-size:10px;padding:5px 12px;border-radius:20px;background:var(--bg2);border:.5px solid var(--border);color:var(--text2)}
+.res-intro{padding:0 24px 12px;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;font-style:italic;color:var(--text2);line-height:1.6;flex-shrink:0}
+.res-scroll{flex:1;overflow-y:auto;padding:0 24px}
+.res-scroll::-webkit-scrollbar{display:none}
+
+.pc{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:8px;animation:rise .4s cubic-bezier(.22,1,.36,1) both}
+.pc:nth-child(1){animation-delay:.05s}
+.pc:nth-child(3){animation-delay:.1s}
+.pc:nth-child(5){animation-delay:.17s}
+.pc:nth-child(7){animation-delay:.24s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.pc.lead{border-left:2px solid var(--gold);border-radius:0 var(--r) var(--r) 0;border-top:.5px solid var(--border);border-right:.5px solid var(--border);border-bottom:.5px solid var(--border)}
+.pc-top{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px}
+.pc-num{width:26px;height:26px;border-radius:7px;background:var(--bg3);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--gold);flex-shrink:0}
+.pc-info{flex:1;min-width:0}
+.pc-name{font-size:14px;font-weight:400;color:var(--text);margin-bottom:2px}
+.pc-addr{font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:9px;padding:3px 9px;border-radius:9px}
+.tag-g{background:#1A1508;color:var(--gold);border:.5px solid #2A1E08}
+.tag-d{background:#0E0E1E;color:var(--text3);border:.5px solid var(--border)}
+.pc-desc{font-size:11px;color:var(--text2);line-height:1.55;margin-top:9px;padding-top:9px;border-top:.5px solid var(--border)}
+
+.conn{display:flex;align-items:center;gap:10px;padding:4px 2px;margin-bottom:8px}
+.cl{flex:1;height:.5px;background:var(--border)}
+.ct{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+
+.outro{padding:8px 24px 4px;font-family:'Cormorant Garamond',serif;font-size:14px;font-style:italic;color:var(--text3);text-align:center;flex-shrink:0}
+.rate-block{padding:8px 24px 4px;flex-shrink:0}
+.rate-lbl{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.rate-row{display:flex;gap:8px}
+.rb{flex:1;padding:10px;background:var(--bg2);border:.5px solid var(--border);border-radius:12px;font-size:18px;cursor:pointer;text-align:center;transition:all .18s}
+.rb:active{transform:scale(.93)}
+.rb.on{border-color:var(--gold);background:var(--gold-dim)}
+
+.chat-bar{padding:8px 24px 10px;flex-shrink:0}
+.chat-inner{display:flex;align-items:center;gap:8px;background:var(--bg2);border:.5px solid var(--border2);border-radius:28px;padding:9px 9px 9px 17px;transition:border-color .15s}
+.chat-inner:focus-within{border-color:var(--gold2)}
+.chat-inp{flex:1;background:none;border:none;outline:none;font-size:13px;font-family:'Geologica',sans-serif;font-weight:300;color:var(--text)}
+.chat-inp::placeholder{color:var(--text3)}
+.chat-btn{width:30px;height:30px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;flex-shrink:0}
+.chat-btn:active{transform:scale(.9)}
+.chat-btn svg{width:13px;height:13px;fill:var(--bg);margin-left:1px}
+
+/* HISTORY / FAV */
+.list-area{flex:1;overflow-y:auto;padding:8px 24px 16px;display:flex;flex-direction:column;gap:8px}
+.list-area::-webkit-scrollbar{display:none}
+.ec{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.ec-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.ec-fmt{font-size:12px;font-weight:400;color:var(--text)}
+.ec-date{font-size:10px;color:var(--text3)}
+.ec-places{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px}
+.ec-tag{display:inline-block;font-size:9px;padding:3px 10px;border-radius:10px;background:var(--gold-dim);color:var(--gold)}
+.ec-acts{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:.5px solid var(--border)}
+.ea{flex:1;padding:8px 6px;background:var(--bg3);border:.5px solid var(--border);border-radius:10px;font-size:10px;color:var(--text3);cursor:pointer;text-align:center;font-family:'Geologica',sans-serif;transition:all .15s}
+.ea:active{background:var(--border)}
+.ea.fav{color:var(--gold);border-color:#3A2A0E;background:var(--gold-dim)}
+.ea.del{color:#E24B4A;border-color:#200A0A;background:#0E0606}
+
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center}
+.empty-box{width:48px;height:48px;border-radius:14px;background:var(--bg2);border:.5px solid var(--border);margin-bottom:4px}
+.empty-title{font-size:15px;color:var(--text2)}
+.empty-hint{font-size:12px;color:var(--text3);line-height:1.6}
+
+/* PROFILE */
+.prof-body{flex:1;overflow-y:auto;padding:12px 24px 24px}
+.prof-body::-webkit-scrollbar{display:none}
+.prof-top{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.prof-av{width:54px;height:54px;border-radius:15px;background:var(--bg2);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);flex-shrink:0;position:relative;overflow:visible}
+.prof-name{font-size:16px;font-weight:400;color:var(--text)}
+.prof-cnt{font-size:11px;color:var(--text3);margin-top:2px}
+.prof-block{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.prof-row{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:.5px solid var(--border)}
+.prof-row:last-child{border-bottom:none}
+.pr-lbl{font-size:13px;color:var(--text2)}
+.pr-val{font-size:13px;color:var(--text)}
+.pr-val.g{color:var(--gold)}
+.pro-card{background:var(--gold-dim);border:.5px solid #3A2A0E;border-radius:var(--r);padding:18px 16px}
+.pro-title{font-size:14px;font-weight:400;color:var(--gold);margin-bottom:5px}
+.pro-desc{font-size:11px;color:var(--gold2);line-height:1.6;margin-bottom:14px}
+.pro-btn{background:var(--gold);border:none;border-radius:11px;padding:12px 24px;font-size:13px;font-weight:400;color:var(--bg);cursor:pointer;font-family:'Geologica',sans-serif;transition:opacity .15s}
+.pro-btn:active{opacity:.85}
+
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:var(--bg3);border:.5px solid var(--border2);border-radius:20px;padding:9px 20px;font-size:12px;color:var(--text2);opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- FORMAT -->
+<div class="screen active" id="s-fmt">
+  <div class="hdr">
+    <div class="logo">NIGHTOUT<div class="logo-dot"></div></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <div class="fmt-time" id="clock" style="font-size:32px;letter-spacing:2px;font-family:'Cormorant Garamond',serif;font-weight:300;font-variant-numeric:lining-nums tabular-nums;color:var(--text)">--:--</div>
+      <div class="fmt-day" id="clock-day" style="font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase">--</div>
+    </div>
+  </div>
+  <div style="padding:4px 24px 0;flex-shrink:0">
+    <div class="weather-strip" id="weather-strip"><span id="weather-txt" style="font-size:10px;color:var(--text2)">Загружаем погоду...</span></div>
+  </div>
+  <div class="fmt-title"><h1>Какой вечер<br><em>планируем?</em></h1></div>
+  <div style="padding:8px 24px 0;flex-shrink:0"><div class="date-scroll" id="date-chips"></div></div>
+  <div class="surprise" onclick="doSurprise()">
+    <span class="s-icon">🎲</span>
+    <div class="s-body"><div class="s-title">Сюрприз — пусть Nightout решит</div><div class="s-sub">Формат и район выберем сами</div></div>
+    <span class="s-arr">›</span>
+  </div>
+  <div class="fmt-grid">
+    <div class="fc" data-fmt="свидание" onclick="pickFmt(this)"><span class="fc-icon">🌹</span><div class="fc-name">Свидание</div><div class="fc-desc">Ужин и прогулка вдвоём</div></div>
+    <div class="fc" data-fmt="друзья" onclick="pickFmt(this)"><span class="fc-icon">👥</span><div class="fc-name">С друзьями</div><div class="fc-desc">Бары и активности</div></div>
+    <div class="fc" data-fmt="культура" onclick="pickFmt(this)"><span class="fc-icon">🎨</span><div class="fc-name">Культура</div><div class="fc-desc">Музеи, галереи, театр</div></div>
+    <div class="fc" data-fmt="ночной клуб" onclick="pickFmt(this)"><span class="fc-icon">🎵</span><div class="fc-name">Клубная ночь</div><div class="fc-desc">Танцы до утра</div></div>
+    <div class="fc" data-fmt="день рождения" onclick="pickFmt(this)"><span class="fc-icon">🎂</span><div class="fc-name">День рождения</div><div class="fc-desc">Особый вечер</div></div>
+    <div class="fc" data-fmt="прогулка" onclick="pickFmt(this)"><span class="fc-icon">🚶</span><div class="fc-name">Прогулка</div><div class="fc-desc">Неспешный маршрут</div></div>
+  </div>
+  <div style="height:6px;flex-shrink:0"></div>
+  <div class="quick-bar">
+    <div class="qi">
+      <input placeholder="Или напиши свой запрос..." id="quick-inp" onkeydown="if(event.key==='Enter')quickReq()">
+      <button class="qi-btn" onclick="quickReq()"><svg viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="ni act" onclick="goTab('fmt')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Вечер</span></button>
+    <button class="ni" onclick="goTab('hist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>История</span></button>
+    <button class="ni" onclick="goTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span>Избранное</span></button>
+    <button class="ni" onclick="goTab('prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Профиль</span></button>
+  </div>
+</div>
+
+<!-- DISTRICT -->
+<div class="screen" id="s-dist">
+  <div class="hdr"><div class="logo">NIGHTOUT<div class="logo-dot"></div></div></div>
+  <div class="dist-head"><h2>В каком районе?</h2><p>Подберём места рядом с вами</p></div>
+  <div class="dist-list">
+    <div class="di" data-d="Центр" onclick="pickDist(this)"><div><div class="di-name">Центр</div><div class="di-sub">Кремль, Тверская, Красная площадь</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Патриаршие" onclick="pickDist(this)"><div><div class="di-name">Патриаршие</div><div class="di-sub">Малая Бронная, Спиридоновка</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Арбат" onclick="pickDist(this)"><div><div class="di-name">Арбат</div><div class="di-sub">Хамовники, Смоленская</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Китай-город" onclick="pickDist(this)"><div><div class="di-name">Китай-город</div><div class="di-sub">Покровка, Маросейка, Солянка</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Замоскворечье" onclick="pickDist(this)"><div><div class="di-name">Замоскворечье</div><div class="di-sub">Пятницкая, Новокузнецкая</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Красная Пресня" onclick="pickDist(this)"><div><div class="di-name">Пресня / Сити</div><div class="di-sub">Деловой центр, Баррикадная</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="ВДНХ" onclick="pickDist(this)"><div><div class="di-name">ВДНХ</div><div class="di-sub">Алексеевская, Ботанический сад</div></div><div class="di-radio"></div></div>
+    <div class="di" data-d="Таганка" onclick="pickDist(this)"><div><div class="di-name">Таганка</div><div class="di-sub">Курская, Марксистская</div></div><div class="di-radio"></div></div>
+    <div class="di" id="custom-di" onclick="focusCustom()">
+      <div style="flex:1"><div class="di-name">📍 Другой район</div><input class="custom-field" id="custom-inp" placeholder="Район или станция метро..." oninput="setCustom(this.value)" onclick="event.stopPropagation()"></div>
+      <div class="di-radio"></div>
+    </div>
+  </div>
+  <div class="extra-area"><span class="extra-lbl">Пожелания — необязательно</span><input class="extra-field" id="extra" placeholder="Бюджет, кухня, компания..."></div>
+  <button class="btn-gold" id="go-btn" onclick="getPlan()" disabled>Составить вечер</button>
+  <button class="btn-ghost" onclick="goScr('s-fmt')">Назад</button>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="s-load">
+  <div class="hdr"><div class="logo">NIGHTOUT<div class="logo-dot"></div></div></div>
+  <div class="load-wrap"><div class="spinner"></div><div class="load-title">Составляем вечер</div><div class="load-hint" id="load-hint">Подбираем лучшие места...</div></div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="s-res">
+  <div class="res-top">
+    <div class="res-logo">NIGHTOUT<div class="logo-dot"></div></div>
+    <div class="res-badge" id="res-badge"></div>
+  </div>
+  <div class="res-chips"><div class="res-chip" id="res-time"></div><div class="res-chip" id="res-season"></div></div>
+  <div class="res-intro" id="res-intro"></div>
+  <div class="res-scroll" id="res-places"></div>
+  <div class="outro" id="res-outro"></div>
+  <div class="rate-block" id="rate-block">
+    <div class="rate-lbl">Как план?</div>
+    <div class="rate-row"><button class="rb" onclick="rate(5,this)">👍</button><button class="rb" onclick="rate(3,this)">👌</button><button class="rb" onclick="rate(1,this)">👎</button></div>
+  </div>
+  <div class="chat-bar"><div class="chat-inner"><input class="chat-inp" id="chat-inp" placeholder="Другой вариант или вопрос..." onkeydown="if(event.key==='Enter')sendChat()"><button class="chat-btn" onclick="sendChat()"><svg viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div></div>
+  <div class="nav">
+    <button class="ni act" onclick="goTab('fmt')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Вечер</span></button>
+    <button class="ni" onclick="goTab('hist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>История</span></button>
+    <button class="ni" onclick="goTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span>Избранное</span></button>
+    <button class="ni" onclick="goTab('prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Профиль</span></button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="s-hist">
+  <div class="hdr"><div class="logo">NIGHTOUT<div class="logo-dot"></div></div><div class="hdr-right">История</div></div>
+  <div class="list-area" id="hist-list"></div>
+  <div class="nav">
+    <button class="ni" onclick="goTab('fmt')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Вечер</span></button>
+    <button class="ni act" onclick="goTab('hist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>История</span></button>
+    <button class="ni" onclick="goTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span>Избранное</span></button>
+    <button class="ni" onclick="goTab('prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Профиль</span></button>
+  </div>
+</div>
+
+<!-- FAV -->
+<div class="screen" id="s-fav">
+  <div class="hdr"><div class="logo">NIGHTOUT<div class="logo-dot"></div></div><div class="hdr-right">Избранное</div></div>
+  <div class="list-area" id="fav-list"></div>
+  <div class="nav">
+    <button class="ni" onclick="goTab('fmt')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Вечер</span></button>
+    <button class="ni" onclick="goTab('hist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>История</span></button>
+    <button class="ni act" onclick="goTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span>Избранное</span></button>
+    <button class="ni" onclick="goTab('prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Профиль</span></button>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="screen" id="s-prof">
+  <div class="hdr"><div class="logo">NIGHTOUT<div class="logo-dot"></div></div><div class="hdr-right">Профиль</div></div>
+  <div class="prof-body">
+    <div class="prof-top">
+      <div class="prof-av" id="prof-av">N</div>
+      <div><div class="prof-name" id="prof-name">Гость</div><div class="prof-cnt" id="prof-cnt">0 вечеров</div></div>
+    </div>
+    <div class="prof-block">
+      <div class="prof-row"><span class="pr-lbl">Подписка</span><span class="pr-val g">Free</span></div>
+      <div class="prof-row"><span class="pr-lbl">Вечеров создано</span><span class="pr-val" id="prof-total">0</span></div>
+    </div>
+    <div class="pro-card">
+      <div class="pro-title">Nightout Pro</div>
+      <div class="pro-desc">Безлимит · История вечеров · Приоритетные рекомендации · Персонализация</div>
+      <button class="pro-btn">299 ₽ / месяц</button>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="ni" onclick="goTab('fmt')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Вечер</span></button>
+    <button class="ni" onclick="goTab('hist')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>История</span></button>
+    <button class="ni" onclick="goTab('fav')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg><span>Избранное</span></button>
+    <button class="ni act" onclick="goTab('prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Профиль</span></button>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API = window.location.origin;
+const urlP = new URLSearchParams(window.location.search);
+const urlPlan = urlP.get('plan');
+let userName = urlP.get('name') || 'друг';
+let selFmt = null, selDist = null, selDate = null;
+let cur = 's-fmt';
+let hist = JSON.parse(localStorage.getItem('no_hist') || '[]');
+let total = parseInt(localStorage.getItem('no_total') || '0');
+
+try {
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready(); tg.expand();
+    if (tg.requestFullscreen) tg.requestFullscreen();
+    setTimeout(() => tg.expand(), 300);
+    const u = tg.initDataUnsafe?.user;
+    if (u) userName = u.first_name || userName;
+    const sp = tg.initDataUnsafe?.start_param || '';
+    if (sp && sp.length === 6) {
+      setTimeout(async () => {
+        try {
+          const r = await fetch(API+'/api/load', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id:sp}) });
+          const d = await r.json();
+          if (d && d.fmt) showSharedPlan(d);
+        } catch(e) {}
+      }, 400);
+    }
+  }
+} catch(e) {}
+
+function goScr(id) {
+  const old = document.getElementById(cur);
+  const next = document.getElementById(id);
+  old.classList.add('exit');
+  setTimeout(() => old.classList.remove('active','exit'), 300);
+  next.classList.add('active');
+  cur = id;
+}
+
+function goTab(tab) {
+  const m = { fmt:'s-fmt', hist:'s-hist', fav:'s-fav', prof:'s-prof' };
+  if (m[tab]) goScr(m[tab]);
+}
+
+function pickFmt(el) {
+  document.querySelectorAll('.fc').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  selFmt = el.dataset.fmt;
+  setTimeout(() => goScr('s-dist'), 220);
+}
+
+function pickDist(el) {
+  document.querySelectorAll('.di').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel');
+  selDist = el.dataset.d;
+  const ci = document.getElementById('custom-inp');
+  if (el.id !== 'custom-di' && ci) ci.style.display = 'none';
+  document.getElementById('go-btn').disabled = false;
+}
+
+function focusCustom() {
+  document.querySelectorAll('.di').forEach(d => d.classList.remove('sel'));
+  document.getElementById('custom-di').classList.add('sel');
+  const ci = document.getElementById('custom-inp');
+  ci.style.display = 'block'; ci.focus();
+  selDist = ci.value.trim() || null;
+  document.getElementById('go-btn').disabled = !ci.value.trim();
+}
+
+function setCustom(v) {
+  selDist = v.trim() || null;
+  document.getElementById('go-btn').disabled = !v.trim();
+}
+
+function ctxNow() {
+  const n = new Date();
+  const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const seasons = {0:'❄️ Зима',1:'❄️ Зима',2:'🌱 Весна',3:'🌱 Весна',4:'🌱 Весна',5:'☀️ Лето',6:'☀️ Лето',7:'☀️ Лето',8:'🍂 Осень',9:'🍂 Осень',10:'🍂 Осень',11:'❄️ Зима'};
+  return { day:days[n.getDay()], time:n.getHours()+':'+String(n.getMinutes()).padStart(2,'0'), season:seasons[n.getMonth()] };
+}
+
+async function getPlan() {
+  if (!selDist) return;
+  goScr('s-load');
+  const hints = ['Подбираем лучшие места...','Изучаем район...','Составляем маршрут...','Финальные штрихи...'];
+  let hi = 0;
+  const iv = setInterval(() => { document.getElementById('load-hint').textContent = hints[hi++%hints.length]; }, 1800);
+  try {
+    const extra = document.getElementById('extra').value.trim();
+    const dateNote = selDate && !selDate.isToday ? 'Вечер на '+selDate.dayName+', '+selDate.fullDate+'.' : '';
+    const extraFull = [dateNote, extra].filter(Boolean).join(' ');
+    const r = await fetch(API+'/api/plan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ format:selFmt, district:selDist, name:userName, extra:extraFull })
+    });
+    const d = await r.json();
+    clearInterval(iv);
+    if (d.error) throw new Error(d.error);
+    renderResult(d); saveHist(d);
+  } catch(e) {
+    clearInterval(iv);
+    goScr('s-dist');
+    toast('Не удалось составить план. Попробуй ещё раз.');
+  }
+}
+
+const fmtL = {'свидание':'🌹 Свидание','друзья':'👥 Друзья','культура':'🎨 Культура','ночной клуб':'🎵 Клуб','день рождения':'🎂 День рождения','прогулка':'🚶 Прогулка'};
+
+function renderResult(d) {
+  const c = ctxNow();
+  const dateLabel = selDate && !selDate.isToday ? selDate.dayName+', '+selDate.fullDate : 'Сегодня';
+  document.getElementById('res-badge').textContent = (fmtL[selFmt]||selFmt)+' · '+selDist;
+  document.getElementById('res-time').textContent = dateLabel+', '+c.time;
+  document.getElementById('res-season').textContent = c.season;
+  document.getElementById('res-intro').textContent = d.intro || '';
+  document.getElementById('res-outro').textContent = d.outro || '';
+  document.getElementById('rate-block').style.display = '';
+  document.querySelectorAll('.rb').forEach(b => b.classList.remove('on'));
+  const wrap = document.getElementById('res-places');
+  wrap.innerHTML = '';
+  (d.places||[]).forEach((p,i) => {
+    const card = document.createElement('div');
+    card.className = 'pc'+(i===0?' lead':'');
+    const tags = [];
+    if (p.rating) tags.push('<span class="tag tag-g">⭐ '+p.rating+'</span>');
+    if (p.category) tags.push('<span class="tag tag-d">'+p.category+'</span>');
+    if (p.hours) tags.push('<span class="tag tag-d">'+p.hours+'</span>');
+    card.innerHTML = '<div class="pc-top"><div class="pc-num">'+(p.num||i+1)+'</div><div class="pc-info"><div class="pc-name">'+p.name+'</div><div class="pc-addr">'+(p.address||'')+'</div></div></div>'+(tags.length?'<div class="pc-tags">'+tags.join('')+'</div>':'')+(p.desc?'<div class="pc-desc">'+p.desc+'</div>':'');
+    wrap.appendChild(card);
+    if (p.transition) {
+      const conn = document.createElement('div'); conn.className = 'conn';
+      conn.innerHTML = '<div class="cl"></div><div class="ct">'+p.transition+'</div><div class="cl"></div>';
+      wrap.appendChild(conn);
+    }
+  });
+  goScr('s-res');
+}
+
+function saveHist(d) {
+  total++;
+  localStorage.setItem('no_total', total);
+  hist.unshift({ fmt:(fmtL[selFmt]||selFmt)+' · '+selDist, places:(d.places||[]).map(p=>p.name).join(' → '), count:(d.places||[]).length, date:new Date().toLocaleDateString('ru',{day:'numeric',month:'short'}) });
+  if (hist.length > 30) hist.pop();
+  localStorage.setItem('no_hist', JSON.stringify(hist));
+  renderHist(); renderFav(); updateProf();
+}
+
+function isFav(h) { return JSON.parse(localStorage.getItem('no_favs')||'[]').some(f => f.fmt===h.fmt && f.places===h.places); }
+
+function eveCard(h, i, ff) {
+  const fon = isFav(h);
+  return '<div class="ec"><div class="ec-top"><div class="ec-fmt">'+h.fmt+'</div><div class="ec-date">'+h.date+'</div></div><div class="ec-places">'+h.places+'</div><div class="ec-tag">'+h.count+' '+(h.count===1?'место':h.count<5?'места':'мест')+'</div><div class="ec-acts"><button class="ea'+(fon?' fav':'')+'" onclick="toggleFav('+i+','+ff+')">'+(fon?'★ Избранное':'☆ В избранное')+'</button><button class="ea" onclick="shareEve('+i+','+ff+')">↗ Поделиться</button>'+(ff?'<button class="ea del" onclick="delFav('+i+')">✕</button>':'<button class="ea del" onclick="delEve('+i+')">✕</button>')+'</div></div>';
+}
+
+function renderHist() {
+  const el = document.getElementById('hist-list');
+  if (!hist.length) { el.innerHTML = '<div class="empty"><div class="empty-box"></div><div class="empty-title">Пока пусто</div><div class="empty-hint">Здесь появятся ваши вечера</div></div>'; return; }
+  el.innerHTML = hist.map((h,i) => eveCard(h,i,false)).join('');
+}
+
+function renderFav() {
+  const el = document.getElementById('fav-list');
+  const favs = JSON.parse(localStorage.getItem('no_favs')||'[]');
+  if (!favs.length) { el.innerHTML = '<div class="empty"><div class="empty-box"></div><div class="empty-title">Пока пусто</div><div class="empty-hint">Сохраняйте вечера из истории</div></div>'; return; }
+  el.innerHTML = favs.map((h,i) => eveCard(h,i,true)).join('');
+}
+
+function toggleFav(i, ff) {
+  let favs = JSON.parse(localStorage.getItem('no_favs')||'[]');
+  const h = ff ? favs[i] : hist[i]; if (!h) return;
+  const idx = favs.findIndex(f => f.fmt===h.fmt && f.places===h.places);
+  if (idx >= 0) { favs.splice(idx,1); toast('Удалено из избранного'); }
+  else { favs.unshift({...h}); toast('Добавлено в избранное ★'); }
+  localStorage.setItem('no_favs', JSON.stringify(favs));
+  renderHist(); renderFav();
+}
+
+function delEve(i) { hist.splice(i,1); total=Math.max(0,total-1); localStorage.setItem('no_hist',JSON.stringify(hist)); localStorage.setItem('no_total',total); renderHist(); updateProf(); }
+function delFav(i) { let f=JSON.parse(localStorage.getItem('no_favs')||'[]'); f.splice(i,1); localStorage.setItem('no_favs',JSON.stringify(f)); renderFav(); renderHist(); }
+
+async function shareEve(i, ff) {
+  const h = ff ? JSON.parse(localStorage.getItem('no_favs')||'[]')[i] : hist[i];
+  if (!h) return;
+  toast('Создаём ссылку...');
+  try {
+    const r = await fetch(API+'/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(h) });
+    const d = await r.json();
+    const dist = h.fmt.includes('·') ? h.fmt.split('·')[1].trim() : 'Москве';
+    const fk = h.fmt.split('·')[0].trim();
+    const intros = {'🌹 Свидание':'Вечер в '+dist+' —','👥 Друзья':'Вечер с друзьями в '+dist+' —','🎨 Культура':'Культурный вечер в '+dist+' —','🎵 Клуб':'Ночь в '+dist+' —','🎂 День рождения':'День рождения в '+dist+' —','🚶 Прогулка':'Прогулка по '+dist+' —'};
+    const intro = intros[fk] || 'Вечер в '+dist+' —';
+    const places = h.places.split(' → ').map(p=>'· '+p).join('\n');
+    const link = d.id ? 'https://nightout-bot-production.up.railway.app/plan/'+d.id : 'https://t.me/N1GHTOUT_bot/NIGHTOUT';
+    const text = intro+'\n\n'+places+'\n\n↗ '+link;
+    if (navigator.share) navigator.share({title:'Nightout',text}).catch(()=>copy(text));
+    else copy(text);
+  } catch(e) { toast('Не удалось создать ссылку'); }
+}
+
+function copy(t) { navigator.clipboard.writeText(t).then(()=>toast('Скопировано')).catch(()=>toast('Ошибка')); }
+
+function updateProf() {
+  try {
+    const av = document.getElementById('prof-av');
+    const uname = urlP.get('username') || '';
+    if (uname === 'yaaapi_0') {
+      av.style.cssText = 'width:54px;height:54px;border-radius:15px;background:#1A0808;border:0.5px solid #3A1010;position:relative;overflow:visible;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:Geologica,sans-serif';
+      var tl = document.createElement('span'); tl.style.cssText = 'position:absolute;top:4px;left:5px;display:flex;flex-direction:column;align-items:center;line-height:1.1';
+      tl.innerHTML = '<span style="font-size:10px;font-weight:700;color:#E24B4A;font-family:Georgia,serif">7</span><span style="font-size:8px;color:#E24B4A;line-height:1">&#9829;</span>';
+      var center = document.createElement('span'); center.style.cssText = 'font-size:20px;color:#E24B4A;line-height:1'; center.innerHTML = '&#9829;';
+      var br2 = document.createElement('span'); br2.style.cssText = 'position:absolute;bottom:4px;right:5px;display:flex;flex-direction:column;align-items:center;line-height:1.1;transform:rotate(180deg)';
+      br2.innerHTML = '<span style="font-size:10px;font-weight:700;color:#E24B4A;font-family:Georgia,serif">7</span><span style="font-size:8px;color:#E24B4A;line-height:1">&#9829;</span>';
+      av.innerHTML = ''; av.appendChild(tl); av.appendChild(center); av.appendChild(br2);
+    } else {
+      av.innerHTML = (userName[0]||'N').toUpperCase();
+      av.style.cssText = '';
+    }
+    const pn = document.getElementById('prof-name'); if (pn) pn.textContent = userName;
+    const pt = document.getElementById('prof-total'); if (pt) pt.textContent = total;
+    const pc = document.getElementById('prof-cnt'); if (pc) pc.textContent = total+' '+(total===1?'вечер':total<5?'вечера':'вечеров');
+  } catch(e) {}
+}
+
+function rate(s, btn) {
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const m = {5:'Рады слышать 🌙',3:'Постараемся лучше',1:'Попробуй другой запрос'};
+  toast(m[s]||'Спасибо!');
+  setTimeout(()=>{ const rb=document.getElementById('rate-block'); if(rb) rb.style.display='none'; },1600);
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-inp');
+  const val = inp.value.trim(); if (!val) return; inp.value='';
+  goScr('s-load'); document.getElementById('load-hint').textContent = 'Обновляем план...';
+  try {
+    const r = await fetch(API+'/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({format:selFmt,district:selDist,name:userName,extra:val}) });
+    const d = await r.json(); if (d.error) throw new Error(d.error);
+    renderResult(d); saveHist(d);
+  } catch(e) { goScr('s-res'); }
+}
+
+async function quickReq() {
+  const inp = document.getElementById('quick-inp');
+  const val = inp.value.trim(); if (!val) return; inp.value='';
+  selFmt = selFmt||'вечер'; selDist = selDist||'Центр';
+  goScr('s-load'); document.getElementById('load-hint').textContent = 'Обрабатываем запрос...';
+  try {
+    const r = await fetch(API+'/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({format:selFmt,district:selDist,name:userName,extra:val}) });
+    const d = await r.json(); if (d.error) throw new Error(d.error);
+    renderResult(d); saveHist(d);
+  } catch(e) { goScr('s-fmt'); toast('Не удалось составить план.'); }
+}
+
+function doSurprise() {
+  const fmts = ['свидание','друзья','культура','прогулка','ночной клуб'];
+  const dists = ['Центр','Патриаршие','Арбат','Китай-город','Замоскворечье','Красная Пресня','Таганка'];
+  const n = new Date(); const isFriSat = n.getDay()===5||n.getDay()===6;
+  selFmt = fmts[Math.floor(Math.random()*(isFriSat?fmts.length:fmts.length-1))];
+  selDist = dists[Math.floor(Math.random()*dists.length)];
+  getPlan();
+}
+
+function initDateChips() {
+  const n = new Date();
+  const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const chips = document.getElementById('date-chips'); if (!chips) return;
+  const dates = [];
+  for (let i=0; i<7; i++) {
+    const d = new Date(n); d.setDate(n.getDate()+i);
+    const label = i===0?'Сегодня':i===1?'Завтра':days[d.getDay()]+', '+d.getDate()+' '+months[d.getMonth()];
+    dates.push({ label, dayName:days[d.getDay()], fullDate:d.getDate()+' '+months[d.getMonth()], isToday:i===0 });
+  }
+  chips.innerHTML = dates.map((d,i) => '<div class="dc'+(i===0?' sel':'')+'" onclick="selectDate(this,\''+d.dayName+'\',\''+d.fullDate+'\','+d.isToday+')">'+d.label+'</div>').join('');
+  selDate = { dayName:days[n.getDay()], fullDate:'сегодня', isToday:true };
+}
+
+function selectDate(el, dayName, fullDate, isToday) {
+  document.querySelectorAll('.dc').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  selDate = { dayName, fullDate, isToday };
+}
+
+function updateClock() {
+  const n = new Date();
+  const days = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+  const cl = document.getElementById('clock'); if (cl) cl.textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  const cd = document.getElementById('clock-day'); if (cd) cd.textContent = days[n.getDay()];
+}
+
+async function loadWeather() {
+  try {
+    const r = await fetch(API+'/api/weather');
+    const d = await r.json();
+    const el = document.getElementById('weather-txt');
+    if (el && d.temp) el.textContent = d.emoji+' '+d.temp+'°C · '+d.desc;
+  } catch(e) {
+    const el = document.getElementById('weather-txt');
+    if (el) el.textContent = '🌤 Москва';
+  }
+}
+
+function showSharedPlan(data) {
+  const c = ctxNow();
+  selFmt='вечер'; selDist=data.fmt?.split('·')[1]?.trim()||'Москва';
+  document.getElementById('res-badge').textContent = data.fmt||'Вечер';
+  document.getElementById('res-time').textContent = 'Сегодня, '+c.time;
+  document.getElementById('res-season').textContent = c.season;
+  document.getElementById('res-intro').textContent = '';
+  document.getElementById('res-outro').textContent = '';
+  document.getElementById('rate-block').style.display = 'none';
+  const wrap = document.getElementById('res-places'); wrap.innerHTML='';
+  const places = (data.places||'').split(' → ');
+  places.forEach((name,i) => {
+    const card=document.createElement('div'); card.className='pc'+(i===0?' lead':'');
+    card.innerHTML='<div class="pc-top"><div class="pc-num">'+(i+1)+'</div><div class="pc-info"><div class="pc-name">'+name.trim()+'</div></div></div>';
+    wrap.appendChild(card);
+    if (i<places.length-1) {
+      const conn=document.createElement('div'); conn.className='conn';
+      conn.innerHTML='<div class="cl"></div><div class="ct">следующая точка</div><div class="cl"></div>';
+      wrap.appendChild(conn);
+    }
+  });
+  const btn=document.createElement('button'); btn.className='btn-gold'; btn.style.cssText='margin:12px 0 0;width:100%'; btn.textContent='Составить свой вечер'; btn.onclick=()=>goTab('fmt');
+  wrap.after(btn);
+  goScr('s-res');
+}
+
+function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2500); }
+
+try { renderHist(); } catch(e) {}
+try { renderFav(); } catch(e) {}
+try { updateProf(); } catch(e) {}
+try { loadWeather(); } catch(e) {}
+try { initDateChips(); } catch(e) {}
+updateClock();
+setInterval(updateClock, 10000);
+
+if (urlPlan) {
+  setTimeout(async () => {
+    try {
+      const r = await fetch(API+'/api/load', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:urlPlan}) });
+      const d = await r.json(); if (d&&d.fmt) showSharedPlan(d);
+    } catch(e) {}
+  }, 400);
+}
+</script>
+</body>
+</html>
