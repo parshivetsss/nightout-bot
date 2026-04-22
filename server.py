@@ -217,19 +217,34 @@ body{{background:#07070F;color:#EEEEF8;font-family:'Geologica',sans-serif;font-w
         elif parsed.path == "/api/weather":
             try:
                 import urllib.request as ur
-                req = ur.Request(
-                    "https://wttr.in/Moscow?format=j1",
-                    headers={"User-Agent": "curl/7.68.0"}
-                )
-                with ur.urlopen(req, timeout=5) as r:
+                # Пробуем open-meteo — надёжный бесплатный API без ключа
+                # Координаты Москвы: 55.75, 37.62
+                weather_url = "https://api.open-meteo.com/v1/forecast?latitude=55.75&longitude=37.62&current=temperature_2m,weathercode,precipitation&timezone=Europe%2FMoscow"
+                req = ur.Request(weather_url, headers={"User-Agent": "Mozilla/5.0"})
+                with ur.urlopen(req, timeout=8) as r:
                     data = json.loads(r.read())
-                c = data["current_condition"][0]
-                temp = c["temp_C"]
-                desc = c["weatherDesc"][0]["value"]
-                is_rain = any(w in desc.lower() for w in ["rain","drizzle","shower","snow","thunder","sleet"])
+                curr = data["current"]
+                temp = str(round(curr["temperature_2m"]))
+                code = curr["weathercode"]
+                precip = curr.get("precipitation", 0)
+
+                # WMO коды погоды
+                if code == 0: desc, emoji = "ясно", "☀️"
+                elif code in [1,2]: desc, emoji = "переменная облачность", "🌤"
+                elif code == 3: desc, emoji = "пасмурно", "☁️"
+                elif code in [45,48]: desc, emoji = "туман", "🌫"
+                elif code in [51,53,55]: desc, emoji = "морось", "🌦"
+                elif code in [61,63]: desc, emoji = "дождь", "🌧"
+                elif code == 65: desc, emoji = "сильный дождь", "🌧"
+                elif code in [71,73]: desc, emoji = "снег", "🌨"
+                elif code == 75: desc, emoji = "сильный снег", "❄️"
+                elif code in [80,81,82]: desc, emoji = "ливень", "🌧"
+                elif code in [95,96,99]: desc, emoji = "гроза", "⛈"
+                else: desc, emoji = "облачно", "🌤"
+
+                is_rain = code in [51,53,55,61,63,65,80,81,82,95,96,99]
                 is_cold = int(temp) < 5
                 is_hot = int(temp) > 25
-                emoji = "🌧" if is_rain else ("❄️" if is_cold else ("☀️" if is_hot else "🌤"))
                 WEATHER_RU = {
                     "sunny": "солнечно", "clear": "ясно", "partly cloudy": "переменная облачность",
                     "cloudy": "облачно", "overcast": "пасмурно", "mist": "туман", "fog": "туман",
